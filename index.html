@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TextCatch — Turn website visitors into text conversations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1A1D22;
+    --ink-soft:#3A4049;
+    --paper:#FBF8F1;
+    --sand:#EFE9DC;
+    --sand-line:#E2DAC8;
+    --signal:#16B57A;      /* the "send" green from the live widget */
+    --signal-deep:#0E9463;
+    --amber:#F0A23A;       /* after-hours accent — breaks the black+green default */
+    --panel:#22262D;       /* dark widget surface */
+    --panel-2:#2C313A;     /* incoming bubble */
+    --line:rgba(26,29,34,.12);
+    --line-2:rgba(26,29,34,.07);
+    --mut:#6C7079;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:"Instrument Sans",system-ui,sans-serif;
+    background:var(--paper);color:var(--ink);
+    -webkit-font-smoothing:antialiased;line-height:1.5;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+  .mono{font-family:"Space Mono",monospace;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+  h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;line-height:1.02;letter-spacing:-.02em;font-weight:800}
+  a{color:inherit}
+
+  /* ---------- top bar ---------- */
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(251,248,241,.82);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line-2)}
+  .topbar .row{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Bricolage Grotesque";font-weight:800;font-size:1.16rem;letter-spacing:-.02em}
+  .brand .net{width:22px;height:22px;flex:none}
+  .navlinks{display:flex;gap:26px;align-items:center}
+  .navlinks a{font-size:.92rem;color:var(--ink-soft);text-decoration:none;font-weight:500}
+  .navlinks a:hover{color:var(--ink)}
+  .btn{font-family:"Instrument Sans";font-weight:600;font-size:.95rem;border:none;cursor:pointer;
+    border-radius:999px;padding:11px 20px;transition:transform .12s ease, box-shadow .12s ease, background .12s ease}
+  .btn-primary{background:var(--ink);color:#fff}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(26,29,34,.22)}
+  .btn-signal{background:var(--signal);color:#06281C}
+  .btn-signal:hover{transform:translateY(-1px);background:var(--signal-deep);color:#fff;box-shadow:0 10px 26px rgba(14,148,99,.35)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--ink)}
+  @media(max-width:760px){.navlinks .lk{display:none}}
+
+  /* ---------- hero ---------- */
+  .hero{padding:72px 0 40px;position:relative}
+  .hero .grid{display:grid;grid-template-columns:1.04fr 1fr;gap:54px;align-items:center}
+  .eyebrow{color:var(--signal-deep);display:inline-flex;align-items:center;gap:8px;margin-bottom:20px}
+  .eyebrow .pip{width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 0 4px rgba(22,181,122,.18)}
+  .hero h1{font-size:clamp(2.5rem,5.4vw,4rem)}
+  .hero h1 .amber{color:var(--amber)}
+  .hero p.sub{font-size:1.16rem;color:var(--ink-soft);margin:22px 0 30px;max-width:30em}
+  .cta-row{display:flex;gap:13px;align-items:center;flex-wrap:wrap}
+  .microproof{display:flex;gap:16px;margin-top:24px;color:var(--mut);flex-wrap:wrap}
+  .microproof span{display:flex;align-items:center;gap:7px}
+  .microproof .dot{width:4px;height:4px;border-radius:50%;background:var(--amber)}
+
+  /* ---------- live widget demo ---------- */
+  .demo-stage{position:relative}
+  .fake-site{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    box-shadow:0 30px 70px -30px rgba(26,29,34,.35);height:430px;position:relative}
+  .fs-bar{height:38px;background:#F1EDE4;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:7px;padding:0 14px}
+  .fs-bar i{width:10px;height:10px;border-radius:50%;background:#D8D0C0;display:block}
+  .fs-url{margin-left:12px;font-family:"Space Mono";font-size:.68rem;color:#A39C8C}
+  .fs-body{padding:26px 24px}
+  .fs-body .ln{height:11px;border-radius:6px;background:#EDE8DD}
+  .fs-body .ln.a{width:38%;background:#E2DBCB;margin-bottom:20px}
+  .fs-body .ln.b{width:72%;margin-bottom:11px}
+  .fs-body .ln.c{width:60%;margin-bottom:11px}
+  .fs-body .ln.d{width:80%}
+  .fs-hero-tag{font-family:"Bricolage Grotesque";font-weight:800;font-size:1.5rem;color:#C9C1B0;margin-bottom:18px;letter-spacing:-.02em}
+
+  /* the widget itself */
+  .widget{position:absolute;right:18px;bottom:18px;width:310px;background:var(--panel);
+    border-radius:20px;box-shadow:0 24px 50px -12px rgba(0,0,0,.5);overflow:hidden;
+    border:1px solid rgba(255,255,255,.06)}
+  .w-head{display:flex;align-items:center;gap:11px;padding:15px 16px 13px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .w-av{width:42px;height:42px;border-radius:50%;flex:none;
+    background:linear-gradient(135deg,#2E7D5B,#16B57A);display:flex;align-items:center;justify-content:center;
+    font-family:"Bricolage Grotesque";font-weight:800;color:#fff;font-size:1.1rem}
+  .w-name{color:#fff;font-weight:600;font-size:.98rem;line-height:1.1}
+  .w-sub{display:flex;align-items:center;gap:6px;color:#9AA0A8;font-size:.78rem;margin-top:3px}
+  .w-sub .on{width:7px;height:7px;border-radius:50%;background:var(--signal)}
+  .w-body{padding:16px 16px 14px;min-height:208px;display:flex;flex-direction:column;gap:10px}
+  .bub{max-width:84%;padding:10px 13px;border-radius:15px;font-size:.9rem;line-height:1.35}
+  .bub.in{background:var(--panel-2);color:#E8EAED;border-bottom-left-radius:5px;align-self:flex-start}
+  .bub.out{background:var(--signal);color:#06281C;font-weight:500;border-bottom-right-radius:5px;align-self:flex-end}
+  .capture{margin-top:2px;display:flex;flex-direction:column;gap:8px}
+  /* hide-for-animation only when JS is active, so static render stays readable */
+  .js .bub,.js .capture{opacity:0;transform:translateY(6px)}
+  .capture .fld{height:40px;border-radius:11px;background:#1B1F25;border:1px solid rgba(255,255,255,.10);
+    display:flex;align-items:center;padding:0 13px;color:#80868F;font-size:.85rem}
+  .capture .fld.focus{border-color:var(--signal)}
+  .capture .send{height:42px;border-radius:11px;background:var(--signal);color:#06281C;font-weight:700;
+    font-family:"Instrument Sans";display:flex;align-items:center;justify-content:center;font-size:.92rem;letter-spacing:.02em}
+  .capture .consent{color:#71767E;font-size:.66rem;line-height:1.4;margin-top:1px}
+  .caught{position:absolute;inset:0;background:var(--panel);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:13px;text-align:center;padding:26px;opacity:0;pointer-events:none}
+  .caught .ring{width:58px;height:58px;border-radius:50%;background:rgba(22,181,122,.15);
+    display:flex;align-items:center;justify-content:center}
+  .caught .ring svg{width:30px;height:30px}
+  .caught h4{color:#fff;font-family:"Bricolage Grotesque";font-weight:800;font-size:1.15rem}
+  .caught p{color:#9AA0A8;font-size:.85rem;max-width:22em}
+  .caught .phone{margin-top:4px;font-family:"Space Mono";font-size:.72rem;color:var(--signal);
+    background:rgba(22,181,122,.10);padding:7px 12px;border-radius:9px}
+
+  /* animation timeline (loops) */
+  @keyframes pop{to{opacity:1;transform:translateY(0)}}
+  .js.play .bub.in{animation:pop .4s ease forwards .5s}
+  .js.play .bub.out{animation:pop .4s ease forwards 1.6s}
+  .js.play .capture{animation:pop .45s ease forwards 2.6s}
+  .js.play .capture .fld.f1{animation:fillName .01s linear forwards 3.4s}
+  .js.play .capture .fld.f2{animation:fillPhone .01s linear forwards 4.0s}
+  @keyframes fillName{to{color:#E8EAED}}
+  @keyframes fillPhone{to{color:#E8EAED}}
+  @keyframes show{to{opacity:1}}
+  .js.play .caught{animation:show .5s ease forwards 5.0s}
+  .js.play .w-body-inner{animation:fade .4s ease forwards 5.0s}
+  @keyframes fade{to{opacity:.15}}
+
+  .replay{position:absolute;top:-15px;right:0;font-family:"Space Mono";font-size:.66rem;color:var(--mut);
+    background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.08em}
+  .replay:hover{color:var(--ink)}
+
+  @media(prefers-reduced-motion:reduce){
+    .js .bub,.js .capture{opacity:1;transform:none}
+    .js.play .bub.in,.js.play .bub.out,.js.play .capture{animation:none}
+    .caught{display:none}
+  }
+
+  /* ---------- leak section ---------- */
+  .band{background:var(--ink);color:#fff;padding:78px 0;margin-top:30px}
+  .leak{display:grid;grid-template-columns:auto 1fr;gap:46px;align-items:center}
+  .bignum{font-family:"Bricolage Grotesque";font-weight:800;font-size:clamp(4.5rem,12vw,8.5rem);
+    line-height:.8;letter-spacing:-.04em;color:var(--amber)}
+  .bignum small{display:block;font-size:.16em;letter-spacing:.06em;color:#8A9098;margin-top:18px;font-family:"Space Mono";text-transform:uppercase;font-weight:400}
+  .leak p{font-size:1.45rem;line-height:1.32;font-family:"Bricolage Grotesque";font-weight:500;letter-spacing:-.01em;max-width:18em}
+  .leak p b{color:var(--signal)}
+  @media(max-width:720px){.leak{grid-template-columns:1fr;gap:22px}}
+
+  /* ---------- how it works ---------- */
+  section.block{padding:88px 0}
+  .sec-head{margin-bottom:46px;max-width:34em}
+  .sec-head .mono{color:var(--signal-deep);margin-bottom:14px;display:block}
+  .sec-head h2{font-size:clamp(2rem,4vw,2.9rem)}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .step{border-top:2px solid var(--ink);padding-top:18px}
+  .step .no{font-family:"Space Mono";font-weight:700;font-size:.8rem;color:var(--amber);margin-bottom:30px;letter-spacing:.06em}
+  .step h3{font-size:1.32rem;margin-bottom:9px}
+  .step p{color:var(--ink-soft);font-size:1rem}
+  @media(max-width:720px){.steps{grid-template-columns:1fr;gap:8px}.step{padding-bottom:8px}}
+
+  /* ---------- who ---------- */
+  .who{background:var(--sand);border-top:1px solid var(--sand-line);border-bottom:1px solid var(--sand-line)}
+  .chips{display:flex;flex-wrap:wrap;gap:11px;margin-top:8px}
+  .chip{background:var(--paper);border:1px solid var(--sand-line);border-radius:999px;
+    padding:10px 18px;font-size:.96rem;font-weight:500}
+  .chip.key{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* ---------- why cards ---------- */
+  .why{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .card{border:1px solid var(--line);border-radius:16px;padding:28px 24px;background:#fff}
+  .card .ic{width:38px;height:38px;border-radius:10px;background:rgba(22,181,122,.12);
+    display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .card .ic svg{width:20px;height:20px}
+  .card h3{font-size:1.18rem;margin-bottom:8px}
+  .card p{color:var(--ink-soft);font-size:.98rem}
+  @media(max-width:720px){.why{grid-template-columns:1fr}}
+
+  /* ---------- pricing ---------- */
+  .pricing{display:flex;justify-content:center}
+  .price-card{width:100%;max-width:440px;border:1.5px solid var(--ink);border-radius:22px;overflow:hidden;background:#fff}
+  .price-top{padding:34px 34px 28px;border-bottom:1px dashed var(--line)}
+  .price-top .pl{display:inline-block;background:var(--amber);color:#3a2400;font-weight:700;
+    font-family:"Space Mono";font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border-radius:7px;margin-bottom:18px}
+  .price-amt{font-family:"Bricolage Grotesque";font-weight:800;font-size:3.6rem;letter-spacing:-.03em;line-height:1}
+  .price-amt span{font-size:1.05rem;color:var(--mut);font-weight:500;font-family:"Instrument Sans"}
+  .price-top p{color:var(--ink-soft);margin-top:12px}
+  .price-list{padding:26px 34px 12px;list-style:none}
+  .price-list li{display:flex;gap:12px;align-items:flex-start;padding:9px 0;font-size:1rem}
+  .price-list li svg{width:19px;height:19px;flex:none;margin-top:2px}
+  .price-card .btn{display:block;width:calc(100% - 68px);margin:14px 34px 30px;text-align:center;padding:15px}
+  .price-foot{text-align:center;color:var(--mut);font-size:.8rem;padding:0 34px 28px}
+
+  /* ---------- final ---------- */
+  .final{background:var(--signal);color:#06281C;text-align:center;padding:92px 0}
+  .final h2{font-size:clamp(2.1rem,5vw,3.3rem);max-width:16em;margin:0 auto 10px}
+  .final p{font-size:1.15rem;color:#0a3a29;margin-bottom:30px}
+  .final .btn-primary{background:var(--ink);color:#fff;font-size:1.05rem;padding:15px 30px}
+
+  /* ---------- footer ---------- */
+  footer{background:var(--ink);color:#9AA0A8;padding:46px 0 40px}
+  footer .row{display:flex;justify-content:space-between;align-items:flex-start;gap:30px;flex-wrap:wrap}
+  footer .brand{color:#fff}
+  footer .net path{stroke:#fff}
+  footer .legal{max-width:34em;font-size:.82rem;line-height:1.6}
+  footer .legal a{color:#cfd3d8}
+
+  /* ---------- modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(20,22,26,.55);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  .overlay.open{display:flex}
+  .modal{background:var(--paper);border-radius:22px;width:100%;max-width:440px;padding:34px 32px 30px;position:relative;
+    box-shadow:0 40px 90px -20px rgba(0,0,0,.4)}
+  .modal h3{font-size:1.7rem;margin-bottom:8px}
+  .modal .ms{color:var(--ink-soft);margin-bottom:22px}
+  .modal label{display:block;font-size:.82rem;font-weight:600;margin:14px 0 6px}
+  .modal input{width:100%;height:46px;border:1.5px solid var(--line);border-radius:11px;padding:0 14px;
+    font-family:"Instrument Sans";font-size:1rem;background:#fff;transition:border-color .15s}
+  .modal input:focus{outline:none;border-color:var(--signal)}
+  .modal .btn-signal{width:100%;margin-top:22px;padding:15px;font-size:1.02rem}
+  .modal .x{position:absolute;top:18px;right:18px;background:none;border:none;cursor:pointer;color:var(--mut);font-size:1.5rem;line-height:1}
+  .modal .fine{text-align:center;color:var(--mut);font-size:.74rem;margin-top:16px;line-height:1.5}
+  .thanks{text-align:center;padding:10px 0}
+  .thanks .ring{width:64px;height:64px;border-radius:50%;background:rgba(22,181,122,.14);margin:0 auto 18px;display:flex;align-items:center;justify-content:center}
+  .thanks h3{margin-bottom:10px}
+  .thanks p{color:var(--ink-soft)}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar"><div class="wrap row">
+  <div class="brand">
+    <svg class="net" viewBox="0 0 24 24" fill="none"><path d="M3 4h18M5 4l2.5 9M19 4l-2.5 9M7.5 13h9M9 13l1 5M15 13l-1 5" stroke="#16B57A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    TextCatch
+  </div>
+  <div class="navlinks">
+    <a class="lk" href="#how">How it works</a>
+    <a class="lk" href="#pricing">Pricing</a>
+    <button class="btn btn-signal" onclick="openModal()">Start free trial</button>
+  </div>
+</div></div>
+
+<!-- HERO -->
+<header class="hero"><div class="wrap grid">
+  <div>
+    <span class="eyebrow mono"><span class="pip"></span>Lead capture for local business</span>
+    <h1>Your busiest hours are <span class="amber">after you close.</span></h1>
+    <p class="sub">Most visitors won't call, and won't fill out a form. TextCatch turns them into a text conversation — captured to your phone, answered on your time.</p>
+    <div class="cta-row">
+      <button class="btn btn-primary" onclick="openModal()">Start free trial</button>
+      <a href="#how" class="btn btn-ghost">See how it works</a>
+    </div>
+    <div class="microproof mono">
+      <span><span class="dot"></span>Installs in 5 min</span>
+      <span><span class="dot"></span>Works on any site</span>
+      <span><span class="dot"></span>$49 / month</span>
+    </div>
+  </div>
+
+  <!-- live animated widget -->
+  <div class="demo-stage">
+    <button class="replay" onclick="replay()" aria-label="Replay demo">↻ Replay</button>
+    <div class="fake-site">
+      <div class="fs-bar"><i></i><i></i><i></i><span class="fs-url">coastalplumbing.com</span></div>
+      <div class="fs-body">
+        <div class="fs-hero-tag">Coastal Plumbing Co.</div>
+        <div class="ln a"></div>
+        <div class="ln b"></div><div class="ln c"></div><div class="ln d"></div>
+      </div>
+      <!-- widget -->
+      <div class="widget" id="widget">
+        <div class="w-head">
+          <div class="w-av">M</div>
+          <div><div class="w-name">Mia</div>
+            <div class="w-sub"><span class="on"></span>Coastal Plumbing Co.</div></div>
+        </div>
+        <div class="w-body">
+          <div class="w-body-inner" style="display:flex;flex-direction:column;gap:10px">
+            <div class="bub in">Hey! 👋 What can I help you with?</div>
+            <div class="bub out">Do you fix water heaters? Mine's leaking.</div>
+            <div class="capture">
+              <div class="fld f1">Jordan M.</div>
+              <div class="fld f2">(808) 555‑0148</div>
+              <div class="fld">Email address</div>
+              <div class="send">Send</div>
+              <div class="consent">By submitting, you agree to receive a text reply at the number provided.</div>
+            </div>
+          </div>
+          <!-- caught state -->
+          <div class="caught">
+            <div class="ring"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h4>Lead caught.</h4>
+            <p>Jordan's number just landed in your texts. Reply whenever you're ready.</p>
+            <div class="phone">→ new text · (808) 555‑0148</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></header>
+
+<!-- LEAK -->
+<div class="band"><div class="wrap leak">
+  <div class="bignum">87%<small>leave without calling</small></div>
+  <p>They're not gone because they're not interested. They're gone because calling a stranger at 8pm is friction. <b>A text isn't.</b></p>
+</div></div>
+
+<!-- HOW -->
+<section class="block" id="how"><div class="wrap">
+  <div class="sec-head">
+    <span class="mono">How it works</span>
+    <h2>Three taps from visitor to saved lead.</h2>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="no">STEP 01</div><h3>They start a chat</h3><p>The bubble feels like texting a real person — not a form, not a robot. Low friction, so people actually use it.</p></div>
+    <div class="step"><div class="no">STEP 02</div><h3>They leave a number</h3><p>One short step captures their name, phone, and what they came for. Consent to text is built in.</p></div>
+    <div class="step"><div class="no">STEP 03</div><h3>You reply by text</h3><p>The lead lands in your normal messages. Answer on your time — no app, no new inbox to check.</p></div>
+  </div>
+</div></section>
+
+<!-- WHO -->
+<section class="block who"><div class="wrap">
+  <div class="sec-head" style="margin-bottom:24px">
+    <span class="mono">Who it's for</span>
+    <h2>Built for businesses that run on calls.</h2>
+  </div>
+  <div class="chips">
+    <span class="chip">Plumbers</span><span class="chip">Roofers</span><span class="chip">Contractors</span>
+    <span class="chip">Dental & med spas</span><span class="chip">Auto shops</span><span class="chip">HVAC</span>
+    <span class="chip">Law offices</span><span class="chip">Landscapers</span>
+    <span class="chip key">Anyone losing leads after hours</span>
+  </div>
+</div></section>
+
+<!-- WHY -->
+<section class="block"><div class="wrap">
+  <div class="why">
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.5 8.5 0 01-12.2 7.6L3 21l1.9-5.8A8.5 8.5 0 1121 11.5z" stroke="#16B57A" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+      <h3>Texts get read</h3>
+      <p>People open texts in minutes. Almost nobody returns a voicemail. Reach leads where they actually respond.</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 4.5-3.4 7.8-8 10-4.6-2.2-8-5.5-8-10V6l8-4z" stroke="#16B57A" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+      <h3>You own every lead</h3>
+      <p>Name, phone, and what they wanted — all yours. Export your list anytime. No middleman between you and your customer.</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="#16B57A" stroke-width="1.8"/><path d="M11 18h2" stroke="#16B57A" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+      <h3>No new inbox</h3>
+      <p>Replies come to your phone as normal texts. Nothing new to learn, nothing extra to log into.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- PRICING -->
+<section class="block" id="pricing" style="padding-top:30px"><div class="wrap">
+  <div class="sec-head" style="text-align:center;margin:0 auto 40px">
+    <span class="mono">Pricing</span>
+    <h2>One plan. No surprises.</h2>
+  </div>
+  <div class="pricing"><div class="price-card">
+    <div class="price-top">
+      <span class="pl">14 days free</span>
+      <div class="price-amt">$49<span> / month</span></div>
+      <p>Everything you need to stop losing leads. Cancel anytime.</p>
+    </div>
+    <ul class="price-list">
+      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>The chat-to-text widget on your site</li>
+      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Unlimited captured leads</li>
+      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Installs on any website in minutes</li>
+      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>You own and export all your data</li>
+    </ul>
+    <button class="btn btn-signal" onclick="openModal()">Start free trial</button>
+    <div class="price-foot">No card required to start · Live in one business day</div>
+  </div></div>
+</div></section>
+
+<!-- FINAL -->
+<div class="final"><div class="wrap">
+  <h2>Stop losing the leads you already paid to get.</h2>
+  <p>Set it up today. Catch your first lead tonight.</p>
+  <button class="btn btn-primary" onclick="openModal()">Start free trial</button>
+</div></div>
+
+<!-- FOOTER -->
+<footer><div class="wrap row">
+  <div>
+    <div class="brand">
+      <svg class="net" viewBox="0 0 24 24" fill="none" style="width:22px;height:22px"><path d="M3 4h18M5 4l2.5 9M19 4l-2.5 9M7.5 13h9M9 13l1 5M15 13l-1 5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      TextCatch
+    </div>
+    <div class="mono" style="color:#6C7079;margin-top:12px">© 2026 TextCatch</div>
+  </div>
+  <div class="legal">
+    By starting a trial you agree to receive setup info from TextCatch. Visitors who use the widget consent to a text reply at the number they provide. Questions? <a href="#">hello@textcatch.io</a>
+  </div>
+</div></footer>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="x" onclick="closeModal()" aria-label="Close">×</button>
+    <div id="form-view">
+      <h3>Start your free trial</h3>
+      <p class="ms">Tell us where to send setup instructions. We'll get you live in a day.</p>
+      <label for="m-name">Your name</label>
+      <input id="m-name" type="text" placeholder="Jordan Mitchell" />
+      <label for="m-email">Work email</label>
+      <input id="m-email" type="email" placeholder="you@yourbusiness.com" />
+      <label for="m-biz">Business name</label>
+      <input id="m-biz" type="text" placeholder="Coastal Plumbing Co." />
+      <label for="m-site">Website <span style="color:var(--mut);font-weight:400">(optional)</span></label>
+      <input id="m-site" type="text" placeholder="coastalplumbing.com" />
+      <button class="btn btn-signal" onclick="submitForm()">Get early access</button>
+      <div class="fine">No credit card. We'll never share your info.</div>
+    </div>
+    <div id="thanks-view" class="thanks" style="display:none">
+      <div class="ring"><svg viewBox="0 0 24 24" fill="none" style="width:32px;height:32px"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h3>You're on the list.</h3>
+      <p>Check your email — we'll reach out within one business day to get TextCatch live on your site.</p>
+      <button class="btn btn-ghost" style="margin-top:22px" onclick="closeModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- demo animation ---
+  const widget = document.getElementById('widget');
+  function startDemo(){ widget.classList.add('js'); void widget.offsetWidth; widget.classList.add('play'); }
+  function replay(){ widget.classList.add('js'); widget.classList.remove('play'); void widget.offsetWidth; widget.classList.add('play'); }
+  window.addEventListener('load', ()=> setTimeout(startDemo, 400));
+
+  // --- modal ---
+  const overlay = document.getElementById('overlay');
+  function openModal(){
+    overlay.classList.add('open');
+    document.getElementById('form-view').style.display='block';
+    document.getElementById('thanks-view').style.display='none';
+  }
+  function closeModal(){ overlay.classList.remove('open'); }
+  function submitForm(){
+    // In production this posts the lead to you (email/webhook). For the smoke test,
+    // every click here is the signal that this business wants the product.
+    document.getElementById('form-view').style.display='none';
+    document.getElementById('thanks-view').style.display='block';
+  }
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+</script>
+</body>
+</html>
