@@ -1,0 +1,54 @@
+TextCatch Landing — Session Log
+================================
+Date: 2026-06-23
+
+OVERVIEW
+--------
+Took the TextCatch landing page (a single-file static smoke test) from a local
+folder to a live, deployed site on Vercel with a working lead-capture email flow.
+
+WHAT WAS DONE
+-------------
+1. Repository setup
+   - Initialized a git repo in this folder (was not under version control).
+   - Committed index.html and README.md.
+   - Added .gitignore (.vercel, .DS_Store, .claude/) and excluded a stray
+     local .claude/settings.local.json so it would not be published.
+   - Pushed to GitHub: https://github.com/borys-ctrl/textcatch-landing (branch: main)
+
+2. Initial Vercel deploy
+   - Created Vercel project "textcatch-landing" (framework: Other, no build step).
+   - Deployed to production. Live at: https://textcatch-landing.vercel.app
+
+3. Lead-capture email flow
+   - Added serverless function api/lead.js:
+       * POST-only endpoint at /api/lead.
+       * Reads Resend API key from env var RESEND_API_KEY (never hardcoded).
+       * Emails borys@bestflooringhonolulu.com with subject "New lead at textcatch"
+         and the submitted name, email, business, and website.
+       * Sets reply_to to the lead's email; returns {"ok":true} on success.
+       * Sends via Resend REST API using fetch (no npm dependency / no build step).
+   - Updated submitForm() in index.html to POST the four form fields as JSON to
+     /api/lead (fire-and-forget) before showing the thank-you view.
+   - Set RESEND_API_KEY in Vercel (production environment).
+   - Redeployed to production.
+   - Verified: GET /api/lead -> 405; POST with test payload -> 200 {"ok":true}.
+
+CURRENT STATE
+-------------
+- GitHub repo: https://github.com/borys-ctrl/textcatch-landing (main)
+- Live site:   https://textcatch-landing.vercel.app
+- Lead emails: working via Resend to borys@bestflooringhonolulu.com
+
+NOTES / FOLLOW-UPS
+------------------
+- Sender is Resend's shared onboarding@resend.dev, which only delivers to the
+  Resend account owner's address. To send from a custom domain (e.g. @textcatch.io)
+  or to other recipients, verify a domain in Resend and update FROM in api/lead.js.
+- The Resend API key was pasted into the chat session; consider rotating it in the
+  Resend dashboard and re-running `vercel env add RESEND_API_KEY production`.
+- RESEND_API_KEY is set for the production environment only. Add it to preview/
+  development if the function should work on non-production deploys.
+- GitHub repo and Vercel project are not linked for auto-deploy; redeploy manually
+  with `vercel --prod` after pushing, or connect the repo in Vercel's Git settings.
+- README TODO still open: point a custom domain (e.g. textcatch.io) at the deploy.
