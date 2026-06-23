@@ -445,8 +445,21 @@
   }
   function closeModal(){ overlay.classList.remove('open'); }
   function submitForm(){
-    // In production this posts the lead to you (email/webhook). For the smoke test,
-    // every click here is the signal that this business wants the product.
+    // Post the lead to the /api/lead serverless function (which emails it via
+    // Resend), then show the thank-you. We don't block the thank-you on the
+    // network call — a failed send still logs and shouldn't trap the visitor.
+    var payload = {
+      name:     document.getElementById('m-name').value,
+      email:    document.getElementById('m-email').value,
+      business: document.getElementById('m-biz').value,
+      website:  document.getElementById('m-site').value
+    };
+    fetch('/api/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(function(err){ console.error('lead post failed', err); });
+
     document.getElementById('form-view').style.display='none';
     document.getElementById('thanks-view').style.display='block';
   }
