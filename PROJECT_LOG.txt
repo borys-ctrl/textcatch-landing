@@ -92,9 +92,17 @@ WHAT WAS DONE
          var is missing (safe even if accidentally deployed).
    - Wired the widget: CONFIG.webhookUrl "REPLACE_ME" -> "/api/chat" (same-origin).
 
+3. Version control
+   - This folder was a download of the repo (no .git). Re-initialized git, added
+     the existing remote (github.com/borys-ctrl/textcatch-landing), and fetched —
+     then laid this session's work on TOP of the existing history (reset --mixed
+     origin/main) rather than a fresh root, so the June 23 commits were preserved.
+   - Committed Layers 1 & 2 as 5691939 and pushed to origin/main.
+
 CURRENT STATE
 -------------
 - Chain is wired end-to-end in code: widget -> /api/chat -> two Twilio texts.
+- Committed + pushed to GitHub: origin/main @ 5691939 (June 23 history intact below).
 - NOTHING DEPLOYED for this session's work. The widget + backend are inert until
   Twilio credentials exist and are set as Vercel env vars.
 - Deliberately held the deploy so the live demo isn't a dead submit button.

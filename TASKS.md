@@ -6,7 +6,7 @@
  
 Status key:  [ ] todo   [~] in progress   [x] done   [!] blocked
  
-Last updated: 2026-06-25
+Last updated: 2026-06-25 (Layers 1 & 2 committed + pushed to GitHub; deploy held on Twilio review)
  
 ---
  
@@ -17,21 +17,22 @@ Last updated: 2026-06-25
 - [x] CLAUDE.md committed (project plan + context)
 ---
  
-## LAYER 1 — Widget (the TextCatch-branded chat bubble)  ✅ built (post leg waits on Layer 2)
+## LAYER 1 — Widget (the TextCatch-branded chat bubble)  ✅ built + pushed (post leg waits on Layer 2)
 - [x] Fork widget-source.js → textcatch-widget.js (Shopify wrapper stripped; IDs kept as bfh-* by choice)
 - [x] Update CONFIG: agentName "Tex", businessName "TextCatch", accent #16B57A, text logo, peek/ask/closing copy
 - [x] Point CONFIG.webhookUrl at the new TextCatch backend (set to /api/chat, same-origin)
 - [x] Embed the widget on the landing page (index.html, <script src="/textcatch-widget.js" defer>)
 - [~] Verify it opens, captures name/phone/email/comment, and posts cleanly
       (UI/capture ready; the POST will 404/throw until webhookUrl points at a live backend — Layer 2)
-## LAYER 2 — Backend + Twilio (the two outbound texts)  🟡 code drafted, NOT deployed
+## LAYER 2 — Backend + Twilio (the two outbound texts)  🟡 code pushed to GitHub, NOT deployed
 - [x] Backend endpoint receives the lead POST from the widget (/api/chat.js, CommonJS, raw fetch — no SDK)
 - [x] Send SMS #1 to the VISITOR (confirmation copy — see CLAUDE.md)
 - [x] Send SMS #2 to BORYS'S CELL (lead alert copy — see CLAUDE.md)
       Reads TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER / OWNER_PHONE_NUMBER from env.
       Promise.allSettled: a bad visitor # won't block the owner alert; 502 only if both fail.
 - [!] Twilio account + phone number + credentials (Account SID, Auth Token, Twilio #)
-      BLOCKED: awaiting Borys's Twilio status. THIS IS THE NEXT ACTION.
+      BLOCKED: Twilio compliance profile submitted ~4pm June 24, under review (~2 days).
+      Credentials land once approved. THIS IS THE NEXT ACTION.
 - [ ] Store Twilio creds + Borys's personal cell as Vercel env vars (never in code/chat)
 - [ ] Deploy (held until creds exist, so the live demo isn't a dead submit button)
 - [ ] Test end-to-end: submit widget → both texts arrive
@@ -60,5 +61,8 @@ Last updated: 2026-06-25
 ---
  
 ## NEXT ACTION
-➡  Resolve Twilio setup (Layer 2, first blocked item). Borys to confirm:
-   account yet? phone number yet? Then we wire credentials and build Layer 1+2.
+➡  WAIT on Twilio compliance review (submitted ~4pm June 24, ~2 days). Layers 1 & 2
+   are built, committed, and pushed to GitHub (origin/main @ 5691939) but UNDEPLOYED.
+   When Twilio approves: grab Account SID / Auth Token / Twilio #, set the 4 env vars
+   in Vercel (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER,
+   OWNER_PHONE_NUMBER), deploy, then test end-to-end (submit widget → both texts).
