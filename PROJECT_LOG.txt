@@ -52,3 +52,57 @@ NOTES / FOLLOW-UPS
 - GitHub repo and Vercel project are not linked for auto-deploy; redeploy manually
   with `vercel --prod` after pushing, or connect the repo in Vercel's Git settings.
 - README TODO still open: point a custom domain (e.g. textcatch.io) at the deploy.
+
+
+================================================================================
+Date: 2026-06-25
+
+OVERVIEW
+--------
+Scoped TextCatch up from a smoke-test landing page to the real product. Built
+Layer 1 (the branded chat widget) and drafted Layer 2 (the Twilio SMS backend).
+Both are code-complete but UNDEPLOYED — gated on Twilio credentials.
+
+WHAT WAS DONE
+-------------
+1. Layer 1 — Widget (built)
+   - Forked widget-source.js (the "Kai" Shopify chat widget) into
+     textcatch-widget.js: stripped the Shopify HTML wrapper, leaving a single
+     self-contained vanilla-JS IIFE that injects its own CSS + DOM.
+   - Rebranded via CONFIG: agentName "Tex", businessName "TextCatch",
+     accent #16B57A (brand green from the landing page), text logo "TextCatch"
+     (no avatar image yet), and TextCatch peek/ask/closing copy.
+   - Genericized two BFH-specific bits: the document.title cleanup regex and the
+     console.error label. Internal element IDs left as bfh-* by choice (invisible,
+     no collision risk on textcatch.app — clean rename deferred).
+   - Embedded on the landing page: <script src="/textcatch-widget.js" defer>
+     before </body> in index.html.
+
+2. Layer 2 — Backend + Twilio (drafted)
+   - Added serverless function api/chat.js (POST-only at /api/chat):
+       * Receives the widget's lead POST (firstName, phone, email, comment).
+       * Sends two SMS via the Twilio REST API using fetch (no SDK / no build step),
+         matching api/lead.js conventions (CommonJS, raw fetch).
+       * SMS #1 -> visitor: confirmation copy (per CLAUDE.md).
+       * SMS #2 -> OWNER_PHONE_NUMBER: lead-alert copy (per CLAUDE.md).
+       * Reads TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER,
+         OWNER_PHONE_NUMBER from env vars (never hardcoded).
+       * Promise.allSettled so a bad visitor number can't block the owner alert;
+         returns 502 only if BOTH texts fail; 500 "SMS not configured" if any env
+         var is missing (safe even if accidentally deployed).
+   - Wired the widget: CONFIG.webhookUrl "REPLACE_ME" -> "/api/chat" (same-origin).
+
+CURRENT STATE
+-------------
+- Chain is wired end-to-end in code: widget -> /api/chat -> two Twilio texts.
+- NOTHING DEPLOYED for this session's work. The widget + backend are inert until
+  Twilio credentials exist and are set as Vercel env vars.
+- Deliberately held the deploy so the live demo isn't a dead submit button.
+
+BLOCKER / PENDING
+-----------------
+- Twilio: compliance profile (A2P/registration) submitted ~4pm June 24, currently
+  UNDER REVIEW. Expected turnaround ~a couple of days. Once approved we get the
+  Account SID, Auth Token, and a Twilio phone number.
+- Then: set the 4 env vars in Vercel (prod), deploy, and test end-to-end
+  (submit widget -> both texts arrive).

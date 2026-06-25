@@ -6,7 +6,7 @@
  
 Status key:  [ ] todo   [~] in progress   [x] done   [!] blocked
  
-Last updated: 2026-06-23
+Last updated: 2026-06-25
  
 ---
  
@@ -17,19 +17,23 @@ Last updated: 2026-06-23
 - [x] CLAUDE.md committed (project plan + context)
 ---
  
-## LAYER 1 — Widget (the TextCatch-branded chat bubble)
-- [ ] Fork widget-source.js → textcatch-widget.js (strip Shopify wrapper if needed)
-- [ ] Update CONFIG: agentName, businessName, logoUrl, accent color, peek/ask/closing copy
-- [ ] Point CONFIG.webhookUrl at the new TextCatch backend (set in Layer 2)
-- [ ] Embed the widget on the landing page (textcatch.app) as the live demo
-- [ ] Verify it opens, captures name/phone/email/comment, and posts cleanly
-## LAYER 2 — Backend + Twilio (the two outbound texts)
+## LAYER 1 — Widget (the TextCatch-branded chat bubble)  ✅ built (post leg waits on Layer 2)
+- [x] Fork widget-source.js → textcatch-widget.js (Shopify wrapper stripped; IDs kept as bfh-* by choice)
+- [x] Update CONFIG: agentName "Tex", businessName "TextCatch", accent #16B57A, text logo, peek/ask/closing copy
+- [x] Point CONFIG.webhookUrl at the new TextCatch backend (set to /api/chat, same-origin)
+- [x] Embed the widget on the landing page (index.html, <script src="/textcatch-widget.js" defer>)
+- [~] Verify it opens, captures name/phone/email/comment, and posts cleanly
+      (UI/capture ready; the POST will 404/throw until webhookUrl points at a live backend — Layer 2)
+## LAYER 2 — Backend + Twilio (the two outbound texts)  🟡 code drafted, NOT deployed
+- [x] Backend endpoint receives the lead POST from the widget (/api/chat.js, CommonJS, raw fetch — no SDK)
+- [x] Send SMS #1 to the VISITOR (confirmation copy — see CLAUDE.md)
+- [x] Send SMS #2 to BORYS'S CELL (lead alert copy — see CLAUDE.md)
+      Reads TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER / OWNER_PHONE_NUMBER from env.
+      Promise.allSettled: a bad visitor # won't block the owner alert; 502 only if both fail.
 - [!] Twilio account + phone number + credentials (Account SID, Auth Token, Twilio #)
       BLOCKED: awaiting Borys's Twilio status. THIS IS THE NEXT ACTION.
 - [ ] Store Twilio creds + Borys's personal cell as Vercel env vars (never in code/chat)
-- [ ] Backend endpoint receives the lead POST from the widget
-- [ ] Send SMS #1 to the VISITOR (confirmation copy — see CLAUDE.md)
-- [ ] Send SMS #2 to BORYS'S CELL (lead alert copy — see CLAUDE.md)
+- [ ] Deploy (held until creds exist, so the live demo isn't a dead submit button)
 - [ ] Test end-to-end: submit widget → both texts arrive
 ## LAYER 3 — Database (store leads + messages)
 - [ ] Choose store (Vercel Postgres or similar)
