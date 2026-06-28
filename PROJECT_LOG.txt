@@ -173,3 +173,49 @@ NEXT ACTION
     2. vercel --prod
     3. Submit a test lead through the live widget
     4. Confirm BOTH texts arrive (visitor confirmation + owner alert)
+
+
+================================================================================
+Date: 2026-06-27 (update — A2P rejected, fixed, resubmitted)
+
+OVERVIEW
+--------
+The A2P 10DLC campaign did NOT pass review — it was REJECTED, not just pending.
+Two reasons cited: invalid campaign description and invalid sample message content.
+Fixed both and resubmitted the same day; it's back in review.
+
+WHAT WAS DONE
+-------------
+- Rewrote the campaign DESCRIPTION to clearly explain the opt-in flow: visitors
+  enter their name/phone/question in the website chat widget and consent to a text
+  reply; references the Privacy and Terms pages (/privacy, /terms).
+- Replaced the SAMPLE MESSAGES with realistic content matching what we actually
+  send: a real example name, the STOP/HELP keywords, and the msg-&-data-rates
+  disclosure (i.e. the same shape as the deployed SMS #1).
+- Resubmitted the campaign June 27 — back IN REVIEW.
+
+TWILIO ACCOUNT
+--------------
+- Account status: ACTIVE. Balance: ~$19.35.
+- The first ~$20 went to non-refundable A2P registration/vetting fees (brand +
+  campaign registration), so that spend does not come back even on re-review.
+
+CURRENT STATE
+-------------
+- No code changes this update — docs only. origin/main still @ 3b81ad9 for product
+  code; this commit updates TASKS.md + PROJECT_LOG.txt.
+- Live site unchanged: landing + /privacy + /terms + deployed /api/chat backend.
+- Chat widget still DISABLED on the live site (script commented out in index.html).
+
+BLOCKER / PENDING
+-----------------
+- A2P 10DLC campaign IN REVIEW (resubmitted June 27 after the rejection fix).
+  Until approved, carriers may filter or block outbound SMS.
+
+NEXT ACTION
+-----------
+- Unchanged. When the A2P campaign is APPROVED:
+    1. Re-enable the widget: uncomment <script src="/textcatch-widget.js" defer> in index.html
+    2. vercel --prod
+    3. Submit a test lead through the live widget
+    4. Confirm BOTH texts arrive (visitor confirmation + owner alert)

@@ -6,7 +6,7 @@
  
 Status key:  [ ] todo   [~] in progress   [x] done   [!] blocked
  
-Last updated: 2026-06-27 (Twilio creds live + env vars set; A2P campaign IN REVIEW; legal pages live)
+Last updated: 2026-06-27 (A2P campaign rejected → fixed + resubmitted, back IN REVIEW; Twilio active)
  
 ---
  
@@ -34,10 +34,16 @@ Last updated: 2026-06-27 (Twilio creds live + env vars set; A2P campaign IN REVI
 - [x] Twilio account + phone number + credentials — Twilio number PURCHASED; compliance profile APPROVED.
 - [x] Store Twilio creds + owner cell as Vercel env vars (4 vars set; never in code/chat)
 - [x] Deploy backend to prod (/api/chat live — GET returns 405 as expected; origin/main @ 3b81ad9)
-- [!] A2P 10DLC campaign SUBMITTED, IN REVIEW. Until approved, carriers may filter/block sends.
+- [!] A2P 10DLC campaign — first submission REJECTED (invalid campaign description +
+      invalid sample message content). FIXED: rewrote the description to explain the
+      website opt-in flow and reference the Privacy/Terms pages; replaced sample messages
+      with realistic ones (real example name, STOP/HELP, rate disclosure). RESUBMITTED
+      June 27 — back IN REVIEW. Until approved, carriers may filter/block sends.
       Widget intentionally still DISABLED on the live site (script commented out in index.html).
       THIS IS THE NEXT ACTION — see bottom.
 - [ ] Test end-to-end: submit widget → both texts arrive (gated on A2P approval)
+      Twilio account ACTIVE, balance ~$19.35 (first ~$20 spent on non-refundable
+      A2P registration/vetting fees).
 ## LAYER 3 — Database (store leads + messages)
 - [ ] Choose store (Vercel Postgres or similar)
 - [ ] Schema: leads (name, phone, email, comment, created_at) + messages (lead_id, direction, body, ts)
