@@ -65,7 +65,8 @@ module.exports = async (req, res) => {
   const visitorMsg =
     `Good day, ${greetName}. Thank you for contacting textcatch.app. ` +
     `We received your question: ${comment || "(no message)"}. ` +
-    `You'll hear from us soon.`;
+    `You'll hear from us soon. ` +
+    `Msg & data rates may apply. Reply STOP to opt out, HELP for help.`;
 
   // #2 → owner (lead alert). Copy per CLAUDE.md.
   const ownerMsg =
