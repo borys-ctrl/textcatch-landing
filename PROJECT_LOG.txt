@@ -114,3 +114,62 @@ BLOCKER / PENDING
   Account SID, Auth Token, and a Twilio phone number.
 - Then: set the 4 env vars in Vercel (prod), deploy, and test end-to-end
   (submit widget -> both texts arrive).
+
+
+================================================================================
+Date: 2026-06-27
+
+OVERVIEW
+--------
+Twilio is set up end-to-end (number purchased, profile approved, credentials in
+Vercel) and the backend is deployed. Added the legal pages carriers expect for
+A2P (Privacy + Terms), switched the public contact email, and updated the visitor
+SMS with the required STOP/HELP tail. One gate remains: the A2P campaign is in
+review. The chat widget stays disabled on the live site until it clears.
+
+WHAT WAS DONE
+-------------
+1. Twilio + backend (Layer 2 now live, minus the A2P gate)
+   - Twilio phone number PURCHASED; compliance profile APPROVED.
+   - Set all four env vars in Vercel (prod): TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
+     TWILIO_PHONE_NUMBER, OWNER_PHONE_NUMBER (entered in Vercel, never in code/chat).
+   - Deployed api/chat.js to production. Confirmed live: GET /api/chat -> 405
+     (POST-only), so the function is routing correctly.
+   - Updated SMS #1 (visitor confirmation) to end with the A2P-registered tail:
+     "Msg & data rates may apply. Reply STOP to opt out, HELP for help." (commit fb5b7ca)
+   - A2P 10DLC campaign SUBMITTED and IN REVIEW.
+
+2. Legal / compliance pages (live)
+   - privacy.html -> live at /privacy: SMS consent, STOP/HELP opt-out, and the
+     "no mobile info sold/shared" clause carriers require.
+   - terms.html -> live at /terms: service terms, SMS terms, disclaimer, liability.
+   - Added vercel.json { "cleanUrls": true } so /privacy and /terms resolve without
+     the .html extension; added footer links (Privacy, Terms) on the landing page.
+
+3. Contact email
+   - Switched the public contact address to textcatchapp@gmail.com across index.html
+     (footer; was a dead # link to hello@textcatch.io), privacy.html, and terms.html
+     (were borys@bestflooringhonolulu.com) — all as proper mailto: links. (commit 3b81ad9)
+   - NOTE: backend recipients are separate and unchanged — api/lead.js still emails
+     borys@bestflooringhonolulu.com, and SMS #2 goes to OWNER_PHONE_NUMBER.
+
+CURRENT STATE
+-------------
+- origin/main @ 3b81ad9, in sync with production.
+- Live now: landing page, /privacy, /terms, contact email textcatchapp@gmail.com,
+  and the deployed /api/chat backend (inert in UI — widget still commented out).
+- Chat widget DISABLED on the live site (script commented out in index.html) so no
+  visitor hits a send button before the A2P campaign is approved.
+
+BLOCKER / PENDING
+-----------------
+- A2P 10DLC campaign IN REVIEW (submitted June 27). Until approved, carriers may
+  filter or block outbound SMS.
+
+NEXT ACTION
+-----------
+- When the A2P campaign is APPROVED:
+    1. Re-enable the widget: uncomment <script src="/textcatch-widget.js" defer> in index.html
+    2. vercel --prod
+    3. Submit a test lead through the live widget
+    4. Confirm BOTH texts arrive (visitor confirmation + owner alert)

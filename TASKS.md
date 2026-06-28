@@ -6,7 +6,7 @@
  
 Status key:  [ ] todo   [~] in progress   [x] done   [!] blocked
  
-Last updated: 2026-06-25 (Layers 1 & 2 committed + pushed to GitHub; deploy held on Twilio review)
+Last updated: 2026-06-27 (Twilio creds live + env vars set; A2P campaign IN REVIEW; legal pages live)
  
 ---
  
@@ -24,18 +24,20 @@ Last updated: 2026-06-25 (Layers 1 & 2 committed + pushed to GitHub; deploy held
 - [x] Embed the widget on the landing page (index.html, <script src="/textcatch-widget.js" defer>)
 - [~] Verify it opens, captures name/phone/email/comment, and posts cleanly
       (UI/capture ready; the POST will 404/throw until webhookUrl points at a live backend — Layer 2)
-## LAYER 2 — Backend + Twilio (the two outbound texts)  🟡 code pushed to GitHub, NOT deployed
+## LAYER 2 — Backend + Twilio (the two outbound texts)  🟡 deployed + creds set; A2P campaign IN REVIEW
 - [x] Backend endpoint receives the lead POST from the widget (/api/chat.js, CommonJS, raw fetch — no SDK)
 - [x] Send SMS #1 to the VISITOR (confirmation copy — see CLAUDE.md)
+      Updated with A2P compliance tail: "...Msg & data rates may apply. Reply STOP to opt out, HELP for help."
 - [x] Send SMS #2 to BORYS'S CELL (lead alert copy — see CLAUDE.md)
       Reads TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_PHONE_NUMBER / OWNER_PHONE_NUMBER from env.
       Promise.allSettled: a bad visitor # won't block the owner alert; 502 only if both fail.
-- [!] Twilio account + phone number + credentials (Account SID, Auth Token, Twilio #)
-      BLOCKED: Twilio compliance profile submitted ~4pm June 24, under review (~2 days).
-      Credentials land once approved. THIS IS THE NEXT ACTION.
-- [ ] Store Twilio creds + Borys's personal cell as Vercel env vars (never in code/chat)
-- [ ] Deploy (held until creds exist, so the live demo isn't a dead submit button)
-- [ ] Test end-to-end: submit widget → both texts arrive
+- [x] Twilio account + phone number + credentials — Twilio number PURCHASED; compliance profile APPROVED.
+- [x] Store Twilio creds + owner cell as Vercel env vars (4 vars set; never in code/chat)
+- [x] Deploy backend to prod (/api/chat live — GET returns 405 as expected; origin/main @ 3b81ad9)
+- [!] A2P 10DLC campaign SUBMITTED, IN REVIEW. Until approved, carriers may filter/block sends.
+      Widget intentionally still DISABLED on the live site (script commented out in index.html).
+      THIS IS THE NEXT ACTION — see bottom.
+- [ ] Test end-to-end: submit widget → both texts arrive (gated on A2P approval)
 ## LAYER 3 — Database (store leads + messages)
 - [ ] Choose store (Vercel Postgres or similar)
 - [ ] Schema: leads (name, phone, email, comment, created_at) + messages (lead_id, direction, body, ts)
@@ -54,6 +56,15 @@ Last updated: 2026-06-25 (Layers 1 & 2 committed + pushed to GitHub; deploy held
 - [ ] Confirm panel is not publicly accessible
 ---
  
+## LEGAL & COMPLIANCE (needed for A2P / carrier approval)  ✅ live
+- [x] Privacy policy page — privacy.html, live at /privacy (SMS consent, STOP/HELP, no-sharing clause)
+- [x] Terms & Conditions page — terms.html, live at /terms
+- [x] Footer links to /privacy and /terms on the landing page (cleanUrls enabled via vercel.json)
+- [x] Public contact email set to textcatchapp@gmail.com across index.html, privacy.html, terms.html
+      (NOTE: separate from backend recipients — /api/lead.js still emails borys@bestflooringhonolulu.com,
+       and SMS #2 goes to OWNER_PHONE_NUMBER. Repoint those later if desired.)
+---
+ 
 ## CLEANUP / LOOSE ENDS
 - [ ] Attach textcatch.app domain to the Vercel project (Settings → Domains)
 - [ ] Rotate the Resend API key (was pasted in chat → treat as exposed)
@@ -61,8 +72,11 @@ Last updated: 2026-06-25 (Layers 1 & 2 committed + pushed to GitHub; deploy held
 ---
  
 ## NEXT ACTION
-➡  WAIT on Twilio compliance review (submitted ~4pm June 24, ~2 days). Layers 1 & 2
-   are built, committed, and pushed to GitHub (origin/main @ 5691939) but UNDEPLOYED.
-   When Twilio approves: grab Account SID / Auth Token / Twilio #, set the 4 env vars
-   in Vercel (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER,
-   OWNER_PHONE_NUMBER), deploy, then test end-to-end (submit widget → both texts).
+➡  WAIT on A2P 10DLC campaign approval (submitted June 27, IN REVIEW). Twilio number,
+   credentials, compliance profile, and the 4 Vercel env vars are all DONE; backend is
+   deployed (origin/main @ 3b81ad9). Widget is still disabled on the live site.
+   When the A2P campaign is APPROVED:
+     1. Re-enable the widget: uncomment <script src="/textcatch-widget.js" defer> in index.html
+     2. vercel --prod
+     3. Submit a test lead through the live widget
+     4. Confirm BOTH texts arrive (visitor confirmation + owner alert)
