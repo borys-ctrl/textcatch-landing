@@ -219,3 +219,65 @@ NEXT ACTION
     2. vercel --prod
     3. Submit a test lead through the live widget
     4. Confirm BOTH texts arrive (visitor confirmation + owner alert)
+
+
+================================================================================
+Date: 2026-07-01 (update — A2P rejected twice, Error 30886, brand-match fixes)
+
+OVERVIEW
+--------
+The A2P 10DLC campaign has now been REJECTED TWICE. The latest rejection was
+Error 30886: the campaign description did not match the registered brand and use
+case. Applied brand-matching fixes and resubmitted; the use-case mismatch is a
+known remaining risk (documented below).
+
+ROOT CAUSE
+----------
+- Brand is registered as "Muoma LLC" (dba TextCatch).
+- Campaign use case was set to "Marketing".
+- The campaign description didn't clearly tie TextCatch to the Muoma LLC brand,
+  and the Marketing use case doesn't cleanly fit the actual flow (a lead-capture
+  follow-up / customer-care conversation), which drove the 30886 mismatch.
+
+WHAT WAS DONE
+-------------
+- Rewrote the campaign DESCRIPTION to name Muoma LLC as the operator of TextCatch
+  and explain the website opt-in flow (references the Privacy/Terms pages).
+- Added the legal entity to the public site: "© 2026 Muoma LLC dba TextCatch" in
+  all three footers (index.html, privacy.html, terms.html) so the site matches the
+  registered brand. Deployed to production (commit 8583f54).
+- USE CASE: left as "Marketing". It is LOCKED once the campaign is created — editing
+  it requires recreating the campaign and paying a new registration fee, so it was
+  not changed for this resubmission.
+- Resubmitted the campaign July 1 — IN REVIEW.
+
+FALLBACK PLAN
+-------------
+- If the campaign is rejected AGAIN solely on the use case, recreate it as
+  "Customer Care" (better fit for lead follow-up). That means a new campaign and a
+  new non-refundable fee, so only do it if use case is the last remaining blocker.
+
+TWILIO ACCOUNT
+--------------
+- Account ACTIVE. Note prior spend: ~$20 in non-refundable A2P registration/vetting
+  fees already gone; a Customer Care recreate would add another campaign fee.
+
+CURRENT STATE
+-------------
+- Product code unchanged except the footer legal-entity edit (8583f54, deployed).
+- Live site: landing + /privacy + /terms + deployed /api/chat backend; footers now
+  show "© 2026 Muoma LLC dba TextCatch".
+- Chat widget still DISABLED on the live site (script commented out in index.html).
+
+BLOCKER / PENDING
+-----------------
+- A2P 10DLC campaign IN REVIEW (resubmitted July 1 after the 30886 brand-match fix).
+  Use-case mismatch (Marketing vs. the actual flow) remains a risk — see fallback.
+
+NEXT ACTION
+-----------
+- Unchanged. When the A2P campaign is APPROVED:
+    1. Re-enable the widget: uncomment <script src="/textcatch-widget.js" defer> in index.html
+    2. vercel --prod
+    3. Submit a test lead through the live widget
+    4. Confirm BOTH texts arrive (visitor confirmation + owner alert)

@@ -6,7 +6,7 @@
  
 Status key:  [ ] todo   [~] in progress   [x] done   [!] blocked
  
-Last updated: 2026-06-27 (A2P campaign rejected → fixed + resubmitted, back IN REVIEW; Twilio active)
+Last updated: 2026-07-01 (A2P rejected twice — Err 30886; brand/description fixes deployed, resubmitted IN REVIEW)
  
 ---
  
@@ -34,11 +34,18 @@ Last updated: 2026-06-27 (A2P campaign rejected → fixed + resubmitted, back IN
 - [x] Twilio account + phone number + credentials — Twilio number PURCHASED; compliance profile APPROVED.
 - [x] Store Twilio creds + owner cell as Vercel env vars (4 vars set; never in code/chat)
 - [x] Deploy backend to prod (/api/chat live — GET returns 405 as expected; origin/main @ 3b81ad9)
-- [!] A2P 10DLC campaign — first submission REJECTED (invalid campaign description +
-      invalid sample message content). FIXED: rewrote the description to explain the
-      website opt-in flow and reference the Privacy/Terms pages; replaced sample messages
-      with realistic ones (real example name, STOP/HELP, rate disclosure). RESUBMITTED
-      June 27 — back IN REVIEW. Until approved, carriers may filter/block sends.
+- [!] A2P 10DLC campaign — REJECTED TWICE (latest: Error 30886, campaign description
+      did not match the registered brand + use case).
+      Root cause: brand registered as Muoma LLC (dba TextCatch); use case set to Marketing.
+      Fixes applied:
+        * Rewrote campaign description to name Muoma LLC as the operator of TextCatch
+          and explain the website opt-in flow (references Privacy/Terms pages).
+        * Added "© 2026 Muoma LLC dba TextCatch" to all three footers (deployed, 8583f54)
+          so the public site matches the registered brand.
+        * Use case is LOCKED as Marketing — can't edit without recreating the campaign
+          (and paying a new fee). Left as-is for this resubmission.
+      RESUBMITTED July 1 — IN REVIEW. Until approved, carriers may filter/block sends.
+      FALLBACK: if rejected again SOLELY on use case, recreate the campaign as Customer Care.
       Widget intentionally still DISABLED on the live site (script commented out in index.html).
       THIS IS THE NEXT ACTION — see bottom.
 - [ ] Test end-to-end: submit widget → both texts arrive (gated on A2P approval)
