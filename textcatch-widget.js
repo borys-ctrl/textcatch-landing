@@ -155,6 +155,7 @@
     }
     .bfh-form button:disabled { opacity: .55; cursor: default; }
     .bfh-consent { font-size: 10px; color: #76767a; line-height: 1.4; margin: 2px; }
+    .bfh-consent a { color: #16B57A; text-decoration: underline; }
 
     @media (max-width: 480px) {
       #bfh-root { bottom: 16px; ${side}: 16px; }
@@ -188,7 +189,7 @@
           '<input id="bfh-phone" type="tel" placeholder="Phone number" autocomplete="tel">' +
           '<input id="bfh-email" type="email" placeholder="Email address" autocomplete="email">' +
           '<button id="bfh-submit" type="button">Send</button>' +
-          '<p class="bfh-consent">By submitting, you agree to receive a text reply from ' + CONFIG.businessName + ' at the number provided.</p>' +
+          '<p class="bfh-consent">By submitting, you agree to receive SMS text messages from ' + CONFIG.businessName + ' at the number provided about your inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener">Terms</a>.</p>' +
         '</div>' +
       '</div>' +
     '</div>' +

@@ -6,7 +6,7 @@
  
 Status key:  [ ] todo   [~] in progress   [x] done   [!] blocked
  
-Last updated: 2026-07-01 (A2P rejected twice — Err 30886; brand/description fixes deployed, resubmitted IN REVIEW)
+Last updated: 2026-07-07 (A2P rejected on CTA/opt-in verification — widget was disabled so Twilio couldn't find the opt-in; re-enabled widget + strengthened consent line, redeploying)
  
 ---
  
@@ -46,8 +46,12 @@ Last updated: 2026-07-01 (A2P rejected twice — Err 30886; brand/description fi
           (and paying a new fee). Left as-is for this resubmission.
       RESUBMITTED July 1 — IN REVIEW. Until approved, carriers may filter/block sends.
       FALLBACK: if rejected again SOLELY on use case, recreate the campaign as Customer Care.
-      Widget intentionally still DISABLED on the live site (script commented out in index.html).
-      THIS IS THE NEXT ACTION — see bottom.
+- [~] A2P CTA / opt-in verification — REJECTED because the widget (the opt-in CTA) was
+      DISABLED on the live site, so Twilio's reviewer couldn't find the consent flow.
+      Fix (2026-07-07): re-enabled <script src="/textcatch-widget.js"> in index.html and
+      strengthened the in-widget consent line to the full CTA disclosure set — business name,
+      "Message frequency varies", "Msg & data rates may apply", "Reply STOP to opt out, HELP
+      for help", plus links to /privacy and /terms. Redeploy, then resubmit for A2P review.
 - [ ] Test end-to-end: submit widget → both texts arrive (gated on A2P approval)
       Twilio account ACTIVE, balance ~$19.35 (first ~$20 spent on non-refundable
       A2P registration/vetting fees).
@@ -85,11 +89,12 @@ Last updated: 2026-07-01 (A2P rejected twice — Err 30886; brand/description fi
 ---
  
 ## NEXT ACTION
-➡  WAIT on A2P 10DLC campaign approval (submitted June 27, IN REVIEW). Twilio number,
-   credentials, compliance profile, and the 4 Vercel env vars are all DONE; backend is
-   deployed (origin/main @ 3b81ad9). Widget is still disabled on the live site.
-   When the A2P campaign is APPROVED:
-     1. Re-enable the widget: uncomment <script src="/textcatch-widget.js" defer> in index.html
-     2. vercel --prod
-     3. Submit a test lead through the live widget
-     4. Confirm BOTH texts arrive (visitor confirmation + owner alert)
+➡  DEPLOY the CTA fix, then RESUBMIT A2P. The widget is now re-enabled + the consent line
+   strengthened (index.html + textcatch-widget.js changed locally).
+     1. Commit + push to origin/main (Vercel auto-deploys the live site).
+     2. Verify on https://textcatch.app: chat bubble appears → open it → lead form shows the
+        full consent line with STOP/HELP + Privacy/Terms links.
+     3. Resubmit the A2P 10DLC campaign for review, pointing the CTA/opt-in to textcatch.app.
+   NOTE: the widget POST will still hit /api/chat (Twilio). If A2P isn't approved yet, sends
+   may be filtered — but the opt-in CTA must be LIVE for the reviewer regardless.
+   After A2P approval: submit a test lead → confirm BOTH texts arrive (visitor + owner alert).
