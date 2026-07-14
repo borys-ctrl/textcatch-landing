@@ -156,6 +156,12 @@
     .bfh-form button:disabled { opacity: .55; cursor: default; }
     .bfh-consent { font-size: 10px; color: #76767a; line-height: 1.4; margin: 2px; }
     .bfh-consent a { color: #16B57A; text-decoration: underline; }
+    .bfh-consent-row { display: flex; align-items: flex-start; gap: 8px; margin: 2px; cursor: pointer; }
+    .bfh-consent-row input[type="checkbox"] {
+      width: 15px; height: 15px; min-width: 15px; margin: 1px 0 0; padding: 0;
+      accent-color: ${CONFIG.accent}; cursor: pointer;
+    }
+    .bfh-consent-row.bfh-err-box { outline: 1px solid #e25555; outline-offset: 3px; border-radius: 4px; }
 
     @media (max-width: 480px) {
       #bfh-root { bottom: 16px; ${side}: 16px; }
@@ -188,8 +194,11 @@
           '<input id="bfh-name" type="text" placeholder="Your name" autocomplete="given-name">' +
           '<input id="bfh-phone" type="tel" placeholder="Phone number" autocomplete="tel">' +
           '<input id="bfh-email" type="email" placeholder="Email address" autocomplete="email">' +
+          '<label class="bfh-consent-row" id="bfh-consent-row" for="bfh-sms-consent">' +
+            '<input id="bfh-sms-consent" type="checkbox">' +
+            '<span class="bfh-consent">I agree to receive SMS text messages from ' + CONFIG.businessName + ' at the number provided in response to my inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener">Terms</a>.</span>' +
+          '</label>' +
           '<button id="bfh-submit" type="button">Send</button>' +
-          '<p class="bfh-consent">By submitting, you agree to receive SMS text messages from ' + CONFIG.businessName + ' at the number provided about your inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener">Terms</a>.</p>' +
         '</div>' +
       '</div>' +
     '</div>' +
@@ -343,16 +352,21 @@
     const nameEl = root.querySelector("#bfh-name");
     const phoneEl = root.querySelector("#bfh-phone");
     const emailEl = root.querySelector("#bfh-email");
+    const consentEl = root.querySelector("#bfh-sms-consent");
+    const consentRow = root.querySelector("#bfh-consent-row");
     const name = nameEl.value.trim();
     const phoneRaw = phoneEl.value.trim();
     const email = emailEl.value.trim();
 
     let ok = true;
     [nameEl, phoneEl, emailEl].forEach(function (el) { el.classList.remove("bfh-err"); });
+    consentRow.classList.remove("bfh-err-box");
     if (!name) { nameEl.classList.add("bfh-err"); ok = false; }
     const phone = normalizePhone(phoneRaw);
     if (phone.replace(/\D/g, "").length < 11) { phoneEl.classList.add("bfh-err"); ok = false; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { emailEl.classList.add("bfh-err"); ok = false; }
+    // SMS consent must be an affirmative, deliberate opt-in (checkbox defaults to unchecked)
+    if (!consentEl.checked) { consentRow.classList.add("bfh-err-box"); ok = false; }
     if (!ok) return;
 
     submitBtn.disabled = true; submitBtn.textContent = "Sending...";
@@ -368,6 +382,9 @@
       pageUrl: startPage.url,
       commentWithPage: (firstQuestion || "(no message)") + "  [page: " + startPage.label + " — " + startPage.url + "]",
       source: "website-chat-widget",
+      smsConsent: true,
+      smsConsentTimestamp: new Date().toISOString(),
+      smsConsentText: "I agree to receive SMS text messages from " + CONFIG.businessName + " at the number provided in response to my inquiry. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.",
       submittedAt: new Date().toISOString()
     };
 

@@ -107,6 +107,10 @@
   .capture .send{height:42px;border-radius:11px;background:var(--signal);color:#06281C;font-weight:700;
     font-family:"Instrument Sans";display:flex;align-items:center;justify-content:center;font-size:.92rem;letter-spacing:.02em}
   .capture .consent{color:#71767E;font-size:.66rem;line-height:1.4;margin-top:1px}
+  .capture .consent-row{display:flex;align-items:flex-start;gap:7px;margin-top:1px}
+  .capture .consent-row .cbx{width:13px;height:13px;min-width:13px;margin-top:1px;border-radius:3px;
+    border:1px solid rgba(255,255,255,.28);background:#1B1F25;display:flex;align-items:center;justify-content:center;
+    font-size:10px;line-height:1;color:transparent}
   .caught{position:absolute;inset:0;background:var(--panel);display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:13px;text-align:center;padding:26px;opacity:0;pointer-events:none}
   .caught .ring{width:58px;height:58px;border-radius:50%;background:rgba(22,181,122,.15);
@@ -124,8 +128,10 @@
   .js.play .capture{animation:pop .45s ease forwards 2.6s}
   .js.play .capture .fld.f1{animation:fillName .01s linear forwards 3.4s}
   .js.play .capture .fld.f2{animation:fillPhone .01s linear forwards 4.0s}
+  .js.play .capture .consent-row .cbx{animation:tick .01s linear forwards 4.5s}
   @keyframes fillName{to{color:#E8EAED}}
   @keyframes fillPhone{to{color:#E8EAED}}
+  @keyframes tick{to{color:#06281C;background:var(--signal);border-color:var(--signal)}}
   @keyframes show{to{opacity:1}}
   .js.play .caught{animation:show .5s ease forwards 5.0s}
   .js.play .w-body-inner{animation:fade .4s ease forwards 5.0s}
@@ -287,8 +293,8 @@
               <div class="fld f1">Jordan M.</div>
               <div class="fld f2">(808) 555‑0148</div>
               <div class="fld">Email address</div>
+              <div class="consent-row"><span class="cbx">✓</span><div class="consent">I agree to receive a text reply from this business at the number provided. Msg &amp; data rates may apply. Reply STOP to opt out.</div></div>
               <div class="send">Send</div>
-              <div class="consent">By submitting, you agree to receive a text reply at the number provided.</div>
             </div>
           </div>
           <!-- caught state -->

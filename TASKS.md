@@ -6,7 +6,7 @@
  
 Status key:  [ ] todo   [~] in progress   [x] done   [!] blocked
  
-Last updated: 2026-07-07 (A2P rejected on CTA/opt-in verification — widget was disabled so Twilio couldn't find the opt-in; re-enabled widget + strengthened consent line, redeploying)
+Last updated: 2026-07-13 (A2P rejected AGAIN Jul 9 — errors 30893/30886 use-case mismatch (Marketing vs customer-care samples) + 30896/30925 opt-in lacks dedicated UNCHECKED SMS checkbox. Fix: added required, default-unchecked SMS-consent checkbox to widget form (textcatch-widget.js) + matching checkbox in the index.html demo mock; payload now records smsConsent/timestamp/text. Deployed direct-to-Vercel (repo needs this commit pushed). RESOLVED 2026-07-13: deleted the failed Marketing campaign and registered a NEW campaign as LOW VOLUME MIXED ($1.50/mo, covers customer care; $15 one-time vetting fee) on the same brand + messaging service MG83c5dee90e31df5dce4e2f892e7c618a. New campaign SID CMe61c31dfc62366dd0a... — IN PROGRESS (carrier review). Opt-in flow, privacy/terms URLs and transactional sample messages all aligned in the new submission.)
  
 ---
  
