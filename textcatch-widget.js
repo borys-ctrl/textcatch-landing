@@ -365,8 +365,7 @@
     const phone = normalizePhone(phoneRaw);
     if (phone.replace(/\D/g, "").length < 11) { phoneEl.classList.add("bfh-err"); ok = false; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { emailEl.classList.add("bfh-err"); ok = false; }
-    // SMS consent must be an affirmative, deliberate opt-in (checkbox defaults to unchecked)
-    if (!consentEl.checked) { consentRow.classList.add("bfh-err-box"); ok = false; }
+    // SMS consent checkbox is optional — visitors can submit without opting in to SMS
     if (!ok) return;
 
     submitBtn.disabled = true; submitBtn.textContent = "Sending...";
@@ -382,7 +381,7 @@
       pageUrl: startPage.url,
       commentWithPage: (firstQuestion || "(no message)") + "  [page: " + startPage.label + " — " + startPage.url + "]",
       source: "website-chat-widget",
-      smsConsent: true,
+      smsConsent: consentEl.checked,
       smsConsentTimestamp: new Date().toISOString(),
       smsConsentText: "I agree to receive SMS text messages from " + CONFIG.businessName + " at the number provided in response to my inquiry. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.",
       submittedAt: new Date().toISOString()
