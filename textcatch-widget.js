@@ -23,7 +23,8 @@
     // ---- Conversation copy (edit freely) ----
     peekMessage: "Hey 👋 This is TextCatch — ask a question and watch it text you back.",
     askDetails: "Happy to help with that! Before I do — mind sharing your name, email & phone so I can follow up by text?",
-    closing: "Thanks {name}! I'll get right back to you — keep an eye on your texts 📲"
+    closing: "Thanks {name}! I'll get right back to you — keep an eye on your texts 📲",
+    closingNoSms: "Thanks {name}! We received your inquiry and will be in touch."
   };
   /* ============================================== */
 
@@ -196,7 +197,7 @@
           '<input id="bfh-email" type="email" placeholder="Email address" autocomplete="email">' +
           '<label class="bfh-consent-row" id="bfh-consent-row" for="bfh-sms-consent">' +
             '<input id="bfh-sms-consent" type="checkbox">' +
-            '<span class="bfh-consent">I agree to receive SMS text messages from ' + CONFIG.businessName + ' at the number provided in response to my inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="/terms" target="_blank" rel="noopener">Terms</a>.</span>' +
+            '<span class="bfh-consent">I agree to receive SMS text messages from ' + CONFIG.businessName + ' at the number provided in response to my inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="https://www.textcatch.app/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://www.textcatch.app/terms" target="_blank" rel="noopener">Terms</a>.</span>' +
           '</label>' +
           '<button id="bfh-submit" type="button">Send</button>' +
         '</div>' +
@@ -382,8 +383,8 @@
       commentWithPage: (firstQuestion || "(no message)") + "  [page: " + startPage.label + " — " + startPage.url + "]",
       source: "website-chat-widget",
       smsConsent: consentEl.checked,
-      smsConsentTimestamp: new Date().toISOString(),
-      smsConsentText: "I agree to receive SMS text messages from " + CONFIG.businessName + " at the number provided in response to my inquiry. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.",
+      smsConsentTimestamp: consentEl.checked ? new Date().toISOString() : undefined,
+      smsConsentText: consentEl.checked ? "I agree to receive SMS text messages from " + CONFIG.businessName + " at the number provided in response to my inquiry. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help." : undefined,
       submittedAt: new Date().toISOString()
     };
 
@@ -396,7 +397,8 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       form.classList.remove("bfh-show");
       addMsg(name + " • " + phoneRaw + " • " + email, "user");
-      botSay(CONFIG.closing.replace("{name}", name), 900);
+      const closingMsg = consentEl.checked ? CONFIG.closing : CONFIG.closingNoSms;
+      botSay(closingMsg.replace("{name}", name), 900);
     } catch (err) {
       submitBtn.disabled = false; submitBtn.textContent = "Send";
       botSay("Hmm, something went wrong sending that. Mind trying again, or give us a call?", 600);
