@@ -102,7 +102,7 @@ module.exports = async (req, res) => {
 
   return res.status(200).json({
     ok: true,
-    visitorSms: visitorRes.status === "fulfilled",
+    visitorSms: smsConsent && visitorRes.status === "fulfilled",
     ownerSms: ownerRes.status === "fulfilled",
   });
 };
