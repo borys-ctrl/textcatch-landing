@@ -54,6 +54,7 @@ module.exports = async (req, res) => {
   const phone = (body.phone || "").toString().trim();
   const email = (body.email || "").toString().trim();
   const comment = (body.comment || "").toString().trim();
+  const smsConsent = body.smsConsent === true;
 
   if (!phone) {
     return res.status(400).json({ error: "Missing phone number" });
@@ -76,9 +77,13 @@ module.exports = async (req, res) => {
     `${email || "—"}\n` +
     `${comment || "—"}`;
 
-  // Send both. Don't let a bad visitor number block the owner alert.
+  // Only send visitor confirmation SMS if they opted in; always alert the owner.
+  const visitorPromise = smsConsent
+    ? sendSms({ sid, token, from, to: phone, body: visitorMsg })
+    : Promise.resolve({ skipped: true, reason: "no SMS consent" });
+
   const [visitorRes, ownerRes] = await Promise.allSettled([
-    sendSms({ sid, token, from, to: phone, body: visitorMsg }),
+    visitorPromise,
     sendSms({ sid, token, from, to: owner, body: ownerMsg }),
   ]);
 
