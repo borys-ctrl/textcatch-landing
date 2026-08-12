@@ -382,6 +382,7 @@
       pageUrl: startPage.url,
       commentWithPage: (firstQuestion || "(no message)") + "  [page: " + startPage.label + " — " + startPage.url + "]",
       source: "website-chat-widget",
+      businessName: CONFIG.businessName,
       smsConsent: consentEl.checked,
       smsConsentTimestamp: consentEl.checked ? new Date().toISOString() : undefined,
       smsConsentText: consentEl.checked ? "I agree to receive SMS text messages from " + CONFIG.businessName + " at the number provided in response to my inquiry. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help." : undefined,
