@@ -4,7 +4,7 @@
   /* =================== CONFIG =================== */
   const CONFIG = {
     webhookUrl: "/api/chat",     // Layer 2 backend (same-origin on textcatch.app)
-    agentName: "Tex",            // the friendly name the chat greets with
+    agentName: "Borys",            // the friendly name the chat greets with
     position: "right",           // "right" or "left"
     popupDelay: 3000,            // ms after page load before the bubble pops
     panelWidth: 320,             // chat panel width in px (try 300-360)
@@ -18,11 +18,11 @@
     panelBg2: "#262629",
     bubbleBot: "#2f2f33",        // bot message bubble color
     bubbleUser: "#16B57A",       // user message bubble color
-    logoUrl: "",                 // no avatar photo yet → falls back to text logo
+    logoUrl: "https://cdn.shopify.com/s/files/1/0536/8771/3946/files/kai-avatar.jpg?v=1781164005",                 // headshot shown in header + peek bubble
 
     // ---- Conversation copy (edit freely) ----
-    peekMessage: "Hey 👋 This is TextCatch — ask a question and watch it text you back.",
-    askDetails: "Happy to help with that! Before I do — mind sharing your name, email & phone so I can follow up by text?",
+    peekMessage: "Aloha! Borys here 🤙 Ask me anything — I’ll text you right back.",
+    askDetails: "Happy to help! Before I do — mind sharing your name, email & phone so I can text you back?",
     closing: "Thanks {name}! I'll get right back to you — keep an eye on your texts 📲",
     closingNoSms: "Thanks {name}! We received your inquiry and will be in touch."
   };
@@ -175,7 +175,7 @@
   styleEl.textContent = css;
   document.head.appendChild(styleEl);
 
-  const avatarInner = CONFIG.logoUrl ? '<img src="' + CONFIG.logoUrl + '" alt="">' : "TextCatch";
+  const avatarInner = CONFIG.logoUrl ? '<img src="' + CONFIG.logoUrl + '" alt="' + CONFIG.agentName + '">' : CONFIG.agentName;
 
   const root = document.createElement("div");
   root.id = "bfh-root";
