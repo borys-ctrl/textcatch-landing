@@ -55,6 +55,7 @@ module.exports = async (req, res) => {
   const email = (body.email || "").toString().trim();
   const comment = (body.comment || "").toString().trim();
   const smsConsent = body.smsConsent === true;
+  const businessName = (body.businessName || process.env.BUSINESS_NAME || "TextCatch").toString().trim().slice(0, 25);
 
   if (!phone) {
     return res.status(400).json({ error: "Missing phone number" });
@@ -62,11 +63,14 @@ module.exports = async (req, res) => {
 
   const greetName = name || "there";
 
-  // #1 → visitor (confirmation). Copy per CLAUDE.md.
+  // #1 -> visitor (confirmation). Deliberately held to a single 160-char
+  // GSM-7 segment. The visitor's question is no longer echoed back: it made
+  // the message variable-length (often 2-3 segments) and produced doubled
+  // punctuation such as "Wix site?.". The owner alert still carries it.
+  const safeName = greetName.slice(0, 12);
   const visitorMsg =
-    `Good day, ${greetName}. Thank you for contacting textcatch.app. ` +
-    `We received your question: ${comment || "(no message)"}. ` +
-    `You'll hear from us soon. ` +
+    `Hi ${safeName}, thanks for contacting ${businessName}! ` +
+    `We'll reply shortly. ` +
     `Msg & data rates may apply. Reply STOP to opt out, HELP for help.`;
 
   // #2 → owner (lead alert). Copy per CLAUDE.md.
