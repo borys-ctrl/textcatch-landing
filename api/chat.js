@@ -1,3 +1,5 @@
+const { getSite } = require("./sites");
+
 // Vercel serverless function: receives the chat widget's lead POST and sends two
 // SMS via Twilio — #1 a confirmation to the visitor, #2 a lead alert to the owner.
 // All credentials come from env vars (never hardcoded):
@@ -33,10 +35,9 @@ module.exports = async (req, res) => {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_PHONE_NUMBER;
-  const owner = process.env.OWNER_PHONE_NUMBER;
-  if (!sid || !token || !from || !owner) {
+  if (!sid || !token || !from) {
     console.error("Twilio env vars missing", {
-      sid: !!sid, token: !!token, from: !!from, owner: !!owner,
+      sid: !!sid, token: !!token, from: !!from,
     });
     return res.status(500).json({ error: "SMS not configured" });
   }
@@ -55,7 +56,16 @@ module.exports = async (req, res) => {
   const email = (body.email || "").toString().trim();
   const comment = (body.comment || "").toString().trim();
   const smsConsent = body.smsConsent === true;
-  const businessName = (body.businessName || process.env.BUSINESS_NAME || "TextCatch").toString().trim().slice(0, 25);
+  // Resolve which customer this lead belongs to. The widget sends a siteId;
+  // sites.js maps it to that business name and the phone to alert. We do NOT
+  // trust a client-supplied business name — it is display text on the SMS.
+  const site = getSite(body.siteId);
+  if (!site) {
+    console.error("Unknown siteId", body.siteId);
+    return res.status(400).json({ error: "Unknown site" });
+  }
+  const businessName = site.businessName.slice(0, 25);
+  const owner = site.ownerPhone;
 
   if (!phone) {
     return res.status(400).json({ error: "Missing phone number" });
