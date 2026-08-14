@@ -3,6 +3,7 @@
 
   /* =================== CONFIG =================== */
   const CONFIG = {
+    siteId: "textcatch",       // which customer this install belongs to (see api/sites.js)
     webhookUrl: "/api/chat",     // Layer 2 backend (same-origin on textcatch.app)
     agentName: "Borys",            // the friendly name the chat greets with
     position: "right",           // "right" or "left"
@@ -382,6 +383,7 @@
       pageUrl: startPage.url,
       commentWithPage: (firstQuestion || "(no message)") + "  [page: " + startPage.label + " — " + startPage.url + "]",
       source: "website-chat-widget",
+      siteId: CONFIG.siteId,
       businessName: CONFIG.businessName,
       smsConsent: consentEl.checked,
       smsConsentTimestamp: consentEl.checked ? new Date().toISOString() : undefined,
