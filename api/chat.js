@@ -1,4 +1,5 @@
 const { getSite } = require("./sites");
+const { saveLead } = require("./store");
 
 // Vercel serverless function: receives the chat widget's lead POST and sends two
 // SMS via Twilio — #1 a confirmation to the visitor, #2 a lead alert to the owner.
@@ -96,9 +97,22 @@ module.exports = async (req, res) => {
     ? sendSms({ sid, token, from, to: phone, body: visitorMsg })
     : Promise.resolve({ skipped: true, reason: "no SMS consent" });
 
-  const [visitorRes, ownerRes] = await Promise.allSettled([
+  // Persist the lead. Runs alongside the sends rather than before them so a
+  // slow or broken lead log can never delay or block the customer alert.
+  const savePromise = saveLead({
+    site_id: site.id,
+    name: name || null,
+    phone: phone,
+    email: email || null,
+    comment: comment || null,
+    sms_consent: smsConsent,
+    page_url: (body.pageUrl || "").toString().slice(0, 500) || null,
+  });
+
+  const [visitorRes, ownerRes, saveRes] = await Promise.allSettled([
     visitorPromise,
     sendSms({ sid, token, from, to: owner, body: ownerMsg }),
+    savePromise,
   ]);
 
   if (visitorRes.status === "rejected") {
@@ -106,6 +120,10 @@ module.exports = async (req, res) => {
   }
   if (ownerRes.status === "rejected") {
     console.error("Owner SMS failed:", ownerRes.reason?.message);
+  }
+  if (saveRes.status === "rejected") {
+    // Lead still reached the owner by text; surface this so it can be backfilled.
+    console.error("Lead save failed:", saveRes.reason?.message);
   }
 
   // If both failed, surface an error. If only one failed, the lead is still
@@ -118,5 +136,6 @@ module.exports = async (req, res) => {
     ok: true,
     visitorSms: smsConsent && visitorRes.status === "fulfilled",
     ownerSms: ownerRes.status === "fulfilled",
+    saved: saveRes.status === "fulfilled" && !saveRes.value?.skipped,
   });
 };
