@@ -1,8 +1,11 @@
 const { saveTrialSignup } = require("./store");
 
-// Vercel serverless function: receives the trial-form POST and emails the lead
-// to borys@bestflooringhonolulu.com via Resend. The Resend API key is read from
-// the RESEND_API_KEY environment variable (never hardcode it).
+// Vercel serverless function: receives the trial-form POST from the landing
+// page. Saves the signup to Supabase first, then emails an alert via Resend.
+//
+// Credentials come from env vars (never hardcoded):
+//   resend_textcatch  API key for the textcatchapp Resend account
+//   SUPABASE_URL / SUPABASE_SERVICE_KEY  used by ./store
 
 // textcatch.app is verified in Resend, so we can send from it to anyone.
 const TO = ["textcatchapp@gmail.com", "borys@bestflooringhonolulu.com"];
@@ -23,12 +26,11 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // resend_textcatch belongs to the textcatchapp account that owns the
-  // verified textcatch.app domain. RESEND_API_KEY is the older flooring
-  // account, kept only as a fallback.
-  const apiKey = process.env.resend_textcatch || process.env.RESEND_API_KEY;
+  // Belongs to the textcatchapp Resend account, which owns the verified
+  // textcatch.app domain we send from. Lowercase name matches Vercel.
+  const apiKey = process.env.resend_textcatch;
   if (!apiKey) {
-    console.error("RESEND_API_KEY is not set");
+    console.error("resend_textcatch is not set");
     return res.status(500).json({ error: "Email not configured" });
   }
 
