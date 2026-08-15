@@ -4,15 +4,12 @@ const { saveTrialSignup } = require("./store");
 // to borys@bestflooringhonolulu.com via Resend. The Resend API key is read from
 // the RESEND_API_KEY environment variable (never hardcode it).
 
-// Resend's shared sender (onboarding@resend.dev) will ONLY deliver to the
-// Resend account owner's address. Adding a second recipient makes the whole
-// send fail. To alert textcatchapp@gmail.com as well, verify a domain in
-// Resend first, then add it here.
-const TO = ["borys@bestflooringhonolulu.com"];
+// textcatch.app is verified in Resend, so we can send from it to anyone.
+const TO = ["textcatchapp@gmail.com", "borys@bestflooringhonolulu.com"];
 // Resend's shared sender works without verifying a domain, but only delivers to
 // the Resend account owner's address — fine for this smoke test. Swap this for an
 // address on a verified domain once you have one.
-const FROM = "TextCatch Leads <onboarding@resend.dev>";
+const FROM = "TextCatch <hello@textcatch.app>";
 
 function escapeHtml(s) {
   return String(s || "").replace(/[&<>"']/g, (c) => ({
@@ -26,7 +23,10 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
+  // resend_textcatch belongs to the textcatchapp account that owns the
+  // verified textcatch.app domain. RESEND_API_KEY is the older flooring
+  // account, kept only as a fallback.
+  const apiKey = process.env.resend_textcatch || process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.error("RESEND_API_KEY is not set");
     return res.status(500).json({ error: "Email not configured" });
