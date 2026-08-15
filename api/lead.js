@@ -1,8 +1,12 @@
+const { saveTrialSignup } = require("./store");
+
 // Vercel serverless function: receives the trial-form POST and emails the lead
 // to borys@bestflooringhonolulu.com via Resend. The Resend API key is read from
 // the RESEND_API_KEY environment variable (never hardcode it).
 
-const TO = "borys@bestflooringhonolulu.com";
+// Both inboxes: the flooring address is where Resend can deliver from its
+// shared sender, and textcatchapp is where prospect replies already land.
+const TO = ["borys@bestflooringhonolulu.com", "textcatchapp@gmail.com"];
 // Resend's shared sender works without verifying a domain, but only delivers to
 // the Resend account owner's address — fine for this smoke test. Swap this for an
 // address on a verified domain once you have one.
@@ -58,6 +62,16 @@ module.exports = async (req, res) => {
     `Business: ${business || "—"}\n` +
     `Website: ${website || "—"}\n`;
 
+  // Persist first. A signup that reaches the database but not the inbox is
+  // recoverable; one that only ever existed as an email is not.
+  let stored = false;
+  try {
+    const res = await saveTrialSignup({ name: name || null, email: email || null,
+                                        business: business || null, website: website || null });
+    stored = !res.skipped;
+  } catch (err) {
+    console.error("Trial signup save failed:", err.message);
+  }
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -67,7 +81,7 @@ module.exports = async (req, res) => {
       },
       body: JSON.stringify({
         from: FROM,
-        to: [TO],
+        to: TO,
         reply_to: email || undefined,
         subject: "New lead at textcatch",
         html,
