@@ -4,9 +4,11 @@ const { saveTrialSignup } = require("./store");
 // to borys@bestflooringhonolulu.com via Resend. The Resend API key is read from
 // the RESEND_API_KEY environment variable (never hardcode it).
 
-// Both inboxes: the flooring address is where Resend can deliver from its
-// shared sender, and textcatchapp is where prospect replies already land.
-const TO = ["borys@bestflooringhonolulu.com", "textcatchapp@gmail.com"];
+// Resend's shared sender (onboarding@resend.dev) will ONLY deliver to the
+// Resend account owner's address. Adding a second recipient makes the whole
+// send fail. To alert textcatchapp@gmail.com as well, verify a domain in
+// Resend first, then add it here.
+const TO = ["borys@bestflooringhonolulu.com"];
 // Resend's shared sender works without verifying a domain, but only delivers to
 // the Resend account owner's address — fine for this smoke test. Swap this for an
 // address on a verified domain once you have one.
@@ -92,6 +94,9 @@ module.exports = async (req, res) => {
     if (!r.ok) {
       const detail = await r.text();
       console.error("Resend error", r.status, detail);
+      // The alert failed, but if the signup is in the database it is not lost.
+      // Only surface an error to the visitor when we have kept nothing at all.
+      if (stored) return res.status(200).json({ ok: true, emailed: false });
       return res.status(502).json({ error: "Failed to send email" });
     }
 
