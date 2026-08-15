@@ -6,6 +6,7 @@
 // No-ops rather than throwing when unconfigured: a missing email must never
 // cost us a lead that already arrived by text or landed in the database.
 
+const NL = String.fromCharCode(10);
 const FROM = "TextCatch <hello@textcatch.app>";
 const TO = ["textcatchapp@gmail.com"];
 
