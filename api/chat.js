@@ -1,7 +1,7 @@
 const { getSite } = require("./sites");
-const { saveLead, findOrCreateConversation, saveMessage } = require("./store");
+const { saveLead, findOrCreateConversation, saveMessage } = require("../lib/store");
 const { sendLeadEmail } = require("./notify");
-const { notifyDevices } = require("./webpush");
+const { notifyDevices } = require("../lib/webpush");
 
 // Vercel serverless function: receives the chat widget's lead POST and sends two
 // SMS via Twilio — #1 a confirmation to the visitor, #2 a lead alert to the owner.
