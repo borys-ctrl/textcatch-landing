@@ -1,5 +1,5 @@
 const { requireSession } = require("./auth");
-const { saveSubscription, deleteSubscription } = require("../webpush");
+const { saveSubscription, deleteSubscription } = require("../../lib/webpush");
 
 // /api/portal/push
 //
