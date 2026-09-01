@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { getSite } = require("./sites");
 const { findOrCreateConversation, saveMessage } = require("./store");
 const { sendInboundSmsEmail } = require("./notify");
+const { notifyDevices } = require("./webpush");
 
 // Vercel serverless function: Twilio's "A message comes in" webhook for the
 // TextCatch number.
@@ -140,6 +141,20 @@ module.exports = async (req, res) => {
     });
   } catch (err) {
     console.error("Inbound SMS email failed:", err && err.message, { sid: sid, from: from });
+  }
+
+  // Third independent channel: buzz the phone. Same reasoning as above - email
+  // can sit unread for an hour, and a lead who texted is waiting right now.
+  // The push carries no content; the app fetches the message itself.
+  try {
+    const pushed = await notifyDevices();
+    if (pushed && pushed.error) {
+      console.error("Inbound SMS push:", pushed.error, { sid: sid });
+    } else {
+      console.log("Inbound SMS push:", JSON.stringify(pushed));
+    }
+  } catch (err) {
+    console.error("Inbound SMS push failed:", err && err.message, { sid: sid });
   }
 
   return emptyTwiml(res);
