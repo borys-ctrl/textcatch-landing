@@ -1,5 +1,5 @@
 const { getSite } = require("./sites");
-const { saveLead } = require("./store");
+const { saveLead, findOrCreateConversation, saveMessage } = require("./store");
 const { sendLeadEmail } = require("./notify");
 
 // Vercel serverless function: receives the chat widget's lead POST and sends two
@@ -121,11 +121,47 @@ module.exports = async (req, res) => {
     smsConsent: smsConsent,
   });
 
-  const [visitorRes, ownerRes, saveRes, emailRes] = await Promise.allSettled([
+  // Open a conversation thread for this lead so the widget submission shows up
+  // in the portal, not just in the leads table. Without this a visitor who
+  // tests the widget is invisible until they happen to text back.
+  //
+  // Keyed on (site_id, phone), the same key the inbound webhook uses, so when
+  // they DO reply it lands in this thread rather than starting a second one.
+  const threadPromise = (async function () {
+    const convo = await findOrCreateConversation(site.id, phone, name || null);
+    if (!convo || convo.skipped || !convo.id) return { skipped: true };
+
+    // What they typed into the widget is the first message of the thread.
+    await saveMessage({
+      conversation_id: convo.id,
+      direction: "inbound",
+      body: comment || "(started a chat, no message)",
+      from_number: phone,
+      to_number: from,
+      twilio_sid: null,
+    });
+
+    // And the confirmation we auto-send, so the thread reads the way the
+    // lead actually experienced it rather than skipping our half.
+    if (smsConsent) {
+      await saveMessage({
+        conversation_id: convo.id,
+        direction: "outbound",
+        body: visitorMsg,
+        from_number: from,
+        to_number: phone,
+        twilio_sid: null,
+      });
+    }
+    return { ok: true, id: convo.id };
+  })();
+
+  const [visitorRes, ownerRes, saveRes, emailRes, threadRes] = await Promise.allSettled([
     visitorPromise,
     sendSms({ sid, token, from, to: owner, body: ownerMsg }),
     savePromise,
     emailPromise,
+    threadPromise,
   ]);
 
   if (visitorRes.status === "rejected") {
@@ -136,6 +172,11 @@ module.exports = async (req, res) => {
   }
   if (emailRes.status === "rejected") {
     console.error("Lead email failed:", emailRes.reason?.message);
+  }
+  if (threadRes.status === "rejected") {
+    // The lead still reached the owner by text and email; only the portal
+    // thread is missing, so log it rather than failing the request.
+    console.error("Conversation thread failed:", threadRes.reason?.message);
   }
   if (saveRes.status === "rejected") {
     // Lead still reached the owner by text; surface this so it can be backfilled.
@@ -153,6 +194,7 @@ module.exports = async (req, res) => {
     visitorSms: smsConsent && visitorRes.status === "fulfilled",
     ownerSms: ownerRes.status === "fulfilled",
     saved: saveRes.status === "fulfilled" && !saveRes.value?.skipped,
+    threaded: threadRes.status === "fulfilled" && !threadRes.value?.skipped,
     emailed: emailRes.status === "fulfilled" && !emailRes.value?.skipped,
   });
 };
