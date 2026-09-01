@@ -1,5 +1,5 @@
 const { requireSession } = require("./auth");
-const { saveMessage, touchConversation } = require("../store");
+const { saveMessage, touchConversation } = require("../../lib/store");
 
 // POST /api/portal/reply  { conversationId, body }
 //
