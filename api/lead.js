@@ -1,5 +1,5 @@
-const { saveTrialSignup, findOrCreateConversation, saveMessage } = require("./store");
-const { notifyDevices } = require("./webpush");
+const { saveTrialSignup, findOrCreateConversation, saveMessage } = require("../lib/store");
+const { notifyDevices } = require("../lib/webpush");
 
 // Vercel serverless function: receives the trial-form POST from the landing
 // page. Saves the signup to Supabase first, then emails an alert via Resend.
