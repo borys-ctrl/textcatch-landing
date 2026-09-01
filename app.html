@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>TextCatch — Messages</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#141416">
+<link rel="apple-touch-icon" href="/api/icon?n=180">
+<!-- Legacy iOS reads this rather than the manifest to decide whether the
+     home-screen launch is chromeless. Without it, "Add to Home Screen" gives
+     a Safari window with a URL bar, and Apple gates web push on the app being
+     genuinely standalone - so this line is what makes notifications possible. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TextCatch">
 <style>
   :root {
     --bg: #141416;
@@ -91,6 +102,23 @@
   .composer textarea { resize: none; min-height: 44px; max-height: 140px; }
   .empty { margin: auto; color: var(--muted); text-align: center; padding: 40px; }
 
+  /* ---------- notifications banner ---------- */
+  #notif {
+    display: none; padding: 11px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel2); font-size: 13px; color: var(--muted);
+    align-items: center; gap: 10px; justify-content: space-between;
+  }
+  #notif.on { display: flex; }
+  #notif button { padding: 7px 12px; font-size: 13px; white-space: nowrap; }
+  #notif .msg { line-height: 1.35; }
+  #notif b { color: var(--text); font-weight: 600; }
+
+  /* Standalone on an iPhone draws under the notch and the home indicator.
+     Without these the header sits behind the clock and Send is under the bar. */
+  .head { padding-top: calc(14px + env(safe-area-inset-top)); }
+  .composer { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  #signin { padding-top: calc(24px + env(safe-area-inset-top)); }
+
   @media (max-width: 720px) {
     #app.on { flex-direction: column; }
     aside { width: 100%; border-right: 0; border-bottom: 1px solid var(--line); max-height: 42%; }
@@ -120,6 +148,10 @@
         <span class="num">(808) 977-6179</span>
       </div>
       <button id="refresh" class="linkbtn">Refresh</button>
+    </div>
+    <div id="notif">
+      <span class="msg" id="notifMsg"></span>
+      <button id="notifBtn" type="button">Turn on</button>
     </div>
     <div id="list"></div>
   </aside>
@@ -294,6 +326,157 @@
   });
   $("refresh").addEventListener("click", function () { load(); });
 
+  // ---- notifications -----------------------------------------------------
+  //
+  // The whole point of this app. Everything below exists to get one iPhone to
+  // buzz, which Apple makes conditional on the app being installed to the home
+  // screen first - so the unsupported case is a set of instructions, not an
+  // apology.
+
+  var reg = null;
+  var notifState = "unknown";
+
+  function isIos() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      // iPadOS 13+ reports itself as a Mac; the touch points give it away.
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }
+
+  function isInstalled() {
+    return window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  }
+
+  function banner(text, buttonLabel, onClick) {
+    var box = $("notif"), btn = $("notifBtn");
+    if (!text) { box.classList.remove("on"); return; }
+    $("notifMsg").textContent = text;
+    box.classList.add("on");
+    if (!buttonLabel) { btn.style.display = "none"; return; }
+    btn.style.display = "";
+    btn.textContent = buttonLabel;
+    btn.onclick = onClick;
+  }
+
+  // The applicationServerKey has to be raw bytes, not the base64url string the
+  // API hands us.
+  function urlBase64ToUint8Array(base64) {
+    var s = (base64 + "=".repeat((4 - (base64.length % 4)) % 4))
+      .replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(s);
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  async function subscribe() {
+    banner("Asking your phone for permission…", null);
+    try {
+      var permission = await Notification.requestPermission();
+      if (permission !== "granted") return refreshNotifUi();
+
+      var conf = await (await fetch("/api/portal/push", { credentials: "same-origin" })).json();
+      if (!conf.publicKey) {
+        banner("Notifications are not configured on the server yet.", null);
+        return;
+      }
+
+      var existing = await reg.pushManager.getSubscription();
+      var sub = existing || await reg.pushManager.subscribe({
+        // Required by every browser: we promise each push shows something.
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(conf.publicKey),
+      });
+
+      var r = await fetch("/api/portal/push", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      });
+      if (!r.ok) throw new Error("server refused the device");
+
+      banner("Notifications are on for this device.", "Turn off", unsubscribe);
+      notifState = "on";
+    } catch (e) {
+      banner("Could not turn on notifications: " + (e.message || e), "Try again", subscribe);
+    }
+  }
+
+  async function unsubscribe() {
+    try {
+      var sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch("/api/portal/push", {
+          method: "DELETE",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+    } catch (e) {}
+    notifState = "off";
+    refreshNotifUi();
+  }
+
+  async function refreshNotifUi() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      // On an iPhone this is not a dead end - it is the "not installed yet" case.
+      if (isIos() && !isInstalled()) {
+        banner("To get alerts when a lead texts: tap Share, then Add to Home Screen, and open TextCatch from there.", null);
+      } else {
+        banner("This browser can't do notifications. Open the app on your phone instead.", null);
+      }
+      return;
+    }
+    if (isIos() && !isInstalled()) {
+      banner("Tap Share, then Add to Home Screen. Open it from there to turn on alerts.", null);
+      return;
+    }
+    if (Notification.permission === "denied") {
+      banner("Notifications are blocked. Turn them back on in your phone's Settings, under TextCatch.", null);
+      return;
+    }
+    if (!reg) { banner(null); return; }
+
+    var sub = await reg.pushManager.getSubscription();
+    if (sub && Notification.permission === "granted") {
+      // Quietly re-register: a phone can hold a subscription the server has
+      // forgotten (restored backup, database restore), and the symptom is
+      // simply silence, which nobody notices until a lead is lost.
+      fetch("/api/portal/push", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      }).catch(function () {});
+      banner("Notifications are on for this device.", "Turn off", unsubscribe);
+      notifState = "on";
+      return;
+    }
+    banner("Get an alert the moment a lead texts you.", "Turn on", subscribe);
+    notifState = "off";
+  }
+
+  async function initServiceWorker() {
+    if (!("serviceWorker" in navigator)) return refreshNotifUi();
+    try {
+      reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      navigator.serviceWorker.addEventListener("message", function (e) {
+        if (e.data && e.data.type === "refresh") load();
+      });
+    } catch (e) {
+      console.error("Service worker registration failed", e);
+    }
+    refreshNotifUi();
+  }
+
+  // Opening the app is an implicit "I have seen these", so clear the red dot.
+  function clearBadge() {
+    if (navigator.clearAppBadge) { try { navigator.clearAppBadge(); } catch (e) {} }
+  }
+
   // ---- boot ----
   var params = new URLSearchParams(location.search);
   if (params.get("error")) {
@@ -304,13 +487,24 @@
   }
 
   load().then(function (signedIn) {
-    if (!signedIn) show("signin");
+    if (!signedIn) { show("signin"); return; }
+    clearBadge();
+    initServiceWorker();
   });
 
   // Quietly refresh while the tab is open, so new texts appear without a click.
   setInterval(function () {
     if ($("app").classList.contains("on") && document.visibilityState === "visible") load();
   }, 20000);
+
+  // Coming back to the app after a notification should show the new message
+  // straight away rather than up to twenty seconds later.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && $("app").classList.contains("on")) {
+      clearBadge();
+      load();
+    }
+  });
 })();
 </script>
 </body>
