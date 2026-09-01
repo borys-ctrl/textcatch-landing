@@ -1,6 +1,7 @@
 const { getSite } = require("./sites");
 const { saveLead, findOrCreateConversation, saveMessage } = require("./store");
 const { sendLeadEmail } = require("./notify");
+const { notifyDevices } = require("./webpush");
 
 // Vercel serverless function: receives the chat widget's lead POST and sends two
 // SMS via Twilio — #1 a confirmation to the visitor, #2 a lead alert to the owner.
@@ -181,6 +182,16 @@ module.exports = async (req, res) => {
   if (saveRes.status === "rejected") {
     // Lead still reached the owner by text; surface this so it can be backfilled.
     console.error("Lead save failed:", saveRes.reason?.message);
+  }
+
+  // Buzz the installed app. Deliberately AFTER the thread has been written:
+  // the push carries no content, so the phone immediately asks the API what
+  // happened, and firing early would race it to an empty inbox.
+  try {
+    const pushed = await notifyDevices();
+    if (pushed && pushed.error) console.error("Widget lead push:", pushed.error);
+  } catch (err) {
+    console.error("Widget lead push failed:", err && err.message);
   }
 
   // If both failed, surface an error. If only one failed, the lead is still
