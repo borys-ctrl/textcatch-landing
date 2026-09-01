@@ -151,6 +151,8 @@
     }
     .bfh-form input:focus { outline: none; border-color: ${CONFIG.accent}; }
     .bfh-form input.bfh-err { border-color: #e25555; }
+    .bfh-formerr { display: none; color: #e25555; font-size: 12px; line-height: 1.4; margin: 2px 0 0; }
+    .bfh-formerr.bfh-show-err { display: block; }
     .bfh-form button {
       background: ${CONFIG.accent}; color: #fff; border: none; border-radius: 10px; padding: 11px;
       font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -195,11 +197,12 @@
         '<div class="bfh-form" id="bfh-form">' +
           '<input id="bfh-name" type="text" placeholder="Your name" autocomplete="given-name">' +
           '<input id="bfh-phone" type="tel" placeholder="Phone number" autocomplete="tel">' +
-          '<input id="bfh-email" type="email" placeholder="Email address" autocomplete="email">' +
+          '<input id="bfh-email" type="email" placeholder="Email (optional)" autocomplete="email">' +
           '<label class="bfh-consent-row" id="bfh-consent-row" for="bfh-sms-consent">' +
             '<input id="bfh-sms-consent" type="checkbox">' +
             '<span class="bfh-consent">I agree to receive SMS text messages from ' + CONFIG.businessName + ' at the number provided in response to my inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="https://www.textcatch.app/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://www.textcatch.app/terms" target="_blank" rel="noopener">Terms</a>.</span>' +
           '</label>' +
+          '<div class="bfh-formerr" id="bfh-formerr" role="alert"></div>' +
           '<button id="bfh-submit" type="button">Send</button>' +
         '</div>' +
       '</div>' +
@@ -360,15 +363,38 @@
     const phoneRaw = phoneEl.value.trim();
     const email = emailEl.value.trim();
 
-    let ok = true;
+    const errEl = root.querySelector("#bfh-formerr");
+    const problems = [];
     [nameEl, phoneEl, emailEl].forEach(function (el) { el.classList.remove("bfh-err"); });
     consentRow.classList.remove("bfh-err-box");
-    if (!name) { nameEl.classList.add("bfh-err"); ok = false; }
+
+    if (!name) { nameEl.classList.add("bfh-err"); problems.push("your name"); }
+
     const phone = normalizePhone(phoneRaw);
-    if (phone.replace(/\D/g, "").length < 11) { phoneEl.classList.add("bfh-err"); ok = false; }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { emailEl.classList.add("bfh-err"); ok = false; }
-    // SMS consent checkbox is optional — visitors can submit without opting in to SMS
-    if (!ok) return;
+    if (phone.replace(/\D/g, "").length < 11) {
+      phoneEl.classList.add("bfh-err");
+      problems.push("a phone number we can text");
+    }
+
+    // Email is OPTIONAL and only checked if they typed something. This is a
+    // texting product: the phone number is the whole deliverable, and the
+    // backend stores email as null when absent. Requiring it contradicted the
+    // promise on the page ("won't fill out a form") and cost us at least one
+    // real prospect who opened the widget, typed a question and stopped here.
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      emailEl.classList.add("bfh-err");
+      problems.push("a valid email, or leave it blank");
+    }
+
+    // A red border alone explains nothing, and on a phone the field at fault
+    // can be scrolled out of view. Say what is missing.
+    if (problems.length) {
+      errEl.textContent = "Please add " + problems.join(" and ") + ".";
+      errEl.classList.add("bfh-show-err");
+      return;
+    }
+    errEl.textContent = "";
+    errEl.classList.remove("bfh-show-err");
 
     submitBtn.disabled = true; submitBtn.textContent = "Sending...";
 
@@ -399,7 +425,7 @@
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
       form.classList.remove("bfh-show");
-      addMsg(name + " • " + phoneRaw + " • " + email, "user");
+      addMsg([name, phoneRaw, email].filter(Boolean).join(" • "), "user");
       const closingMsg = consentEl.checked ? CONFIG.closing : CONFIG.closingNoSms;
       botSay(closingMsg.replace("{name}", name), 900);
     } catch (err) {
