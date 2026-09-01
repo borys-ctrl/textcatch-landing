@@ -8,6 +8,11 @@
 
 const NL = String.fromCharCode(10);
 const FROM = "TextCatch <hello@textcatch.app>";
+// Replies come back to the mailbox itself rather than a new inbound-email
+// subdomain: no MX records, no extra vendor, and an Apps Script already runs
+// in this mailbox for reply forwarding. The conversation id travels in the
+// subject as [TC-<id>], which is what the relay matches on.
+const REPLY_MAILBOX = process.env.REPLY_MAILBOX || "textcatchapp@gmail.com";
 const TO = ["textcatchapp@gmail.com"];
 
 function esc(s) {
@@ -73,4 +78,49 @@ function sendLeadEmail(lead) {
   });
 }
 
-module.exports = { sendEmail: sendEmail, sendLeadEmail: sendLeadEmail };
+// An inbound text from a lead, arriving at the TextCatch number.
+//
+// Reply-To is per-conversation: replying to this email in Gmail on a phone is
+// what sends the text back. That address is what the relay looks for, so it
+// must stay stable and must not be prettified.
+function sendInboundSmsEmail(msg) {
+  const who = msg.name || msg.from || "unknown number";
+  const preview = (msg.body || "").replace(/\s+/g, " ").trim().slice(0, 60);
+
+  // The [TC-<id>] tag is load-bearing: the email-to-SMS relay reads it to know
+  // which conversation a reply belongs to. Gmail keeps it through "Re:", so it
+  // survives however many times the thread goes back and forth.
+  const tag = msg.conversationId ? "[TC-" + msg.conversationId + "] " : "";
+  const subject = tag + "Text from " + who + (preview ? ": " + preview : "");
+
+  const rows = [
+    ["From", msg.from || "-"],
+    ["Name", msg.name || "-"],
+    ["Message", msg.body || "-"],
+  ];
+
+  const note = msg.conversationId
+    ? "Reply to this email and your answer goes to them as a text from the TextCatch number. Everything above the quoted line is sent; keep it short."
+    : "Storage was unavailable, so replying to this email will NOT reach them. The message is above - answer it another way.";
+
+  const html = "<h2>New text from " + esc(who) + "</h2><table cellpadding=6>" +
+    rows.map(function (r) {
+      return "<tr><td><strong>" + esc(r[0]) + "</strong></td><td>" + esc(r[1]) + "</td></tr>";
+    }).join("") + "</table><p>" + esc(note) + "</p>";
+
+  const text = "New text from " + who + NL +
+    rows.map(function (r) { return r[0] + ": " + r[1]; }).join(NL) + NL + NL + note;
+
+  return sendEmail({
+    subject: subject,
+    html: html,
+    text: text,
+    replyTo: msg.conversationId ? REPLY_MAILBOX : undefined,
+  });
+}
+
+module.exports = {
+  sendEmail: sendEmail,
+  sendLeadEmail: sendLeadEmail,
+  sendInboundSmsEmail: sendInboundSmsEmail,
+};
