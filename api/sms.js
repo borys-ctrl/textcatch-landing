@@ -1,8 +1,8 @@
 const crypto = require("crypto");
 const { getSite } = require("./sites");
-const { findOrCreateConversation, saveMessage } = require("./store");
+const { findOrCreateConversation, saveMessage } = require("../lib/store");
 const { sendInboundSmsEmail } = require("./notify");
-const { notifyDevices } = require("./webpush");
+const { notifyDevices } = require("../lib/webpush");
 
 // Vercel serverless function: Twilio's "A message comes in" webhook for the
 // TextCatch number.
