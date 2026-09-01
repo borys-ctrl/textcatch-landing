@@ -13,6 +13,9 @@ const FROM = "TextCatch <hello@textcatch.app>";
 // in this mailbox for reply forwarding. The conversation id travels in the
 // subject as [TC-<id>], which is what the relay matches on.
 const REPLY_MAILBOX = process.env.REPLY_MAILBOX || "textcatchapp@gmail.com";
+// Default recipient for lead and inbound-text notifications. Callers can
+// override with opts.to - the portal sign-in link, for instance, must go to
+// the person signing in rather than to the shared alerts mailbox.
 const TO = ["textcatchapp@gmail.com"];
 
 function esc(s) {
@@ -33,7 +36,7 @@ async function sendEmail(opts) {
     },
     body: JSON.stringify({
       from: FROM,
-      to: TO,
+      to: opts.to || TO,
       reply_to: opts.replyTo || undefined,
       subject: opts.subject,
       html: opts.html,
