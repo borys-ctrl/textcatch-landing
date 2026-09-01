@@ -42,4 +42,80 @@ function saveTrialSignup(signup) {
   return insertRow("trial_signups", signup);
 }
 
-module.exports = { saveLead: saveLead, saveTrialSignup: saveTrialSignup };
+// --- Conversations -------------------------------------------------------
+//
+// Shared helper so both the inbound webhook and any outbound send land in the
+// same thread. Unlike insertRow these need the row back, so they ask Supabase
+// to return it.
+
+async function supabase(path, opts) {
+  const base = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!base || !key) return { skipped: true, reason: "storage not configured" };
+
+  const r = await fetch(base.replace(/\/+$/, "") + "/rest/v1/" + path, {
+    method: opts.method || "GET",
+    headers: Object.assign({
+      apikey: key,
+      Authorization: "Bearer " + key,
+      "Content-Type": "application/json",
+    }, opts.headers || {}),
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+
+  if (!r.ok) {
+    const detail = await r.text();
+    throw new Error("Supabase " + r.status + " on " + path + ": " + detail);
+  }
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Find the thread for this person, or start one. Upsert on (site_id,
+// lead_phone) so two texts arriving at once cannot create two threads.
+async function findOrCreateConversation(siteId, leadPhone, leadName) {
+  const rows = await supabase("conversations?on_conflict=site_id,lead_phone", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: [{
+      site_id: siteId,
+      lead_phone: leadPhone,
+      lead_name: leadName || null,
+      last_message_at: new Date().toISOString(),
+    }],
+  });
+  if (!rows || rows.skipped) return rows;
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+// Append a message. Duplicate twilio_sid is ignored rather than erroring,
+// because Twilio retries any webhook whose response it did not like.
+async function saveMessage(msg) {
+  const rows = await supabase("messages?on_conflict=twilio_sid", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=ignore-duplicates,return=representation",
+    },
+    body: [msg],
+  });
+  if (!rows || rows.skipped) return rows;
+  return Array.isArray(rows) ? rows[0] || { duplicate: true } : rows;
+}
+
+async function touchConversation(id) {
+  return supabase("conversations?id=eq." + encodeURIComponent(id), {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: { last_message_at: new Date().toISOString() },
+  });
+}
+
+module.exports = {
+  saveLead: saveLead,
+  saveTrialSignup: saveTrialSignup,
+  findOrCreateConversation: findOrCreateConversation,
+  saveMessage: saveMessage,
+  touchConversation: touchConversation,
+};
