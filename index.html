@@ -261,6 +261,7 @@
     <div class="cta-row">
       <button class="btn btn-primary" onclick="tryTextCatch()">Text yourself a demo</button>
       <a href="#how" class="btn btn-ghost">Or see how it works</a>
+      <button class="btn btn-ghost" onclick="openModal()">Rather we called you?</button>
     </div>
     <div class="microproof mono">
       <span><span class="dot"></span>Installs in 5 min</span>
@@ -384,7 +385,7 @@
       <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>You own and export all your data</li>
     </ul>
     <button class="btn btn-signal" onclick="tryTextCatch()">Text yourself a demo</button>
-    <div class="price-foot">No card required to start · Live in one business day</div>
+    <div class="price-foot"><a href="#" onclick="openModal();return false;" style="color:var(--brand,#16B57A)">Prefer a form? Leave your details</a> &middot; No card required to start · Live in one business day</div>
   </div></div>
 </div></section>
 
@@ -417,15 +418,22 @@
     <button class="x" onclick="closeModal()" aria-label="Close">×</button>
     <div id="form-view">
       <h3>Start your free trial</h3>
-      <p class="ms">Tell us where to send setup instructions. We'll get you live in a day.</p>
+      <p class="ms">Faster to just try the chat bubble &mdash; but if you would rather we came to you, leave your details. We'll get you live in a day.</p>
       <label for="m-name">Your name</label>
       <input id="m-name" type="text" placeholder="Jordan Mitchell" />
       <label for="m-email">Work email</label>
       <input id="m-email" type="email" placeholder="you@yourbusiness.com" />
       <label for="m-biz">Business name</label>
       <input id="m-biz" type="text" placeholder="Coastal Plumbing Co." />
+      <label for="m-phone">Mobile number</label>
+      <input id="m-phone" type="tel" placeholder="(808) 555-0148" />
       <label for="m-site">Website <span style="color:var(--mut);font-weight:400">(optional)</span></label>
       <input id="m-site" type="text" placeholder="coastalplumbing.com" />
+      <label class="consent-row" for="m-consent" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0;cursor:pointer">
+        <input id="m-consent" type="checkbox" style="width:15px;height:15px;min-width:15px;margin:2px 0 0;accent-color:var(--brand,#16B57A)" />
+        <span style="font-size:11px;color:var(--mut);line-height:1.45">I agree to receive SMS text messages from TextCatch at the number provided in response to my inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="https://www.textcatch.app/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://www.textcatch.app/terms" target="_blank" rel="noopener">Terms</a>.</span>
+      </label>
+      <div id="m-err" style="display:none;color:#e25555;font-size:12px;margin:2px 0 8px"></div>
       <button class="btn btn-signal" onclick="submitForm()">Get early access</button>
       <div class="fine">No credit card. We'll never share your info.</div>
     </div>
@@ -461,8 +469,21 @@
       name:     document.getElementById('m-name').value,
       email:    document.getElementById('m-email').value,
       business: document.getElementById('m-biz').value,
-      website:  document.getElementById('m-site').value
+      website:  document.getElementById('m-site').value,
+      phone:    document.getElementById('m-phone').value,
+      smsConsent: document.getElementById('m-consent').checked
     };
+
+    // A number is what makes this reachable. Without one the signup lands in
+    // the inbox but never becomes a conversation anyone can answer.
+    var digits = (payload.phone || '').replace(/\D/g, '');
+    var err = document.getElementById('m-err');
+    if (digits.length < 10) {
+      err.textContent = 'Add a mobile number we can text you on.';
+      err.style.display = 'block';
+      return;
+    }
+    err.style.display = 'none';
     fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
