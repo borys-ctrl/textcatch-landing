@@ -1,4 +1,4 @@
-const { saveTrialSignup } = require("./store");
+const { saveTrialSignup, findOrCreateConversation, saveMessage } = require("./store");
 
 // Vercel serverless function: receives the trial-form POST from the landing
 // page. Saves the signup to Supabase first, then emails an alert via Resend.
@@ -45,10 +45,20 @@ module.exports = async (req, res) => {
   const email = (body.email || "").toString().trim();
   const business = (body.business || "").toString().trim();
   const website = (body.website || "").toString().trim();
+  const phoneRaw = (body.phone || "").toString().trim();
+  const smsConsent = body.smsConsent === true;
 
   if (!name && !email && !business) {
     return res.status(400).json({ error: "Empty submission" });
   }
+
+  // Same normalisation the widget uses, so a number typed as (808) 555-0148
+  // here and +18085550148 there resolve to one conversation rather than two.
+  const digits = phoneRaw.replace(/\D/g, "");
+  const phone = !digits ? ""
+    : digits.length === 10 ? "+1" + digits
+    : digits.length === 11 && digits[0] === "1" ? "+" + digits
+    : "+" + digits;
 
   const html = `
     <h2>New lead at TextCatch</h2>
@@ -56,6 +66,7 @@ module.exports = async (req, res) => {
       <tr><td><strong>Name</strong></td><td>${escapeHtml(name) || "—"}</td></tr>
       <tr><td><strong>Email</strong></td><td>${escapeHtml(email) || "—"}</td></tr>
       <tr><td><strong>Business</strong></td><td>${escapeHtml(business) || "—"}</td></tr>
+      <tr><td><strong>Phone</strong></td><td>${escapeHtml(phoneRaw) || "—"}</td></tr>
       <tr><td><strong>Website</strong></td><td>${escapeHtml(website) || "—"}</td></tr>
     </table>`;
 
@@ -64,6 +75,7 @@ module.exports = async (req, res) => {
     `Name: ${name || "—"}\n` +
     `Email: ${email || "—"}\n` +
     `Business: ${business || "—"}\n` +
+    `Phone: ${phoneRaw || "—"}\n` +
     `Website: ${website || "—"}\n`;
 
   // Persist first. A signup that reaches the database but not the inbox is
@@ -76,6 +88,34 @@ module.exports = async (req, res) => {
   } catch (err) {
     console.error("Trial signup save failed:", err.message);
   }
+  // A form signup should reach the portal exactly like a widget lead, so both
+  // roads lead to one inbox. Needs a phone number: conversations are keyed on
+  // it, and without one there is nobody to text back.
+  if (phone && phone.replace(/\D/g, "").length >= 11) {
+    try {
+      const convo = await findOrCreateConversation("textcatch", phone, name || null);
+      if (convo && !convo.skipped && convo.id) {
+        await saveMessage({
+          conversation_id: convo.id,
+          direction: "inbound",
+          body:
+            "Asked for a trial via the form." +
+            (business ? " Business: " + business + "." : "") +
+            (website ? " Site: " + website + "." : "") +
+            (email ? " Email: " + email + "." : "") +
+            (smsConsent ? " Agreed to be texted." : " Did NOT tick the text consent box."),
+          from_number: phone,
+          to_number: process.env.TWILIO_PHONE_NUMBER || null,
+          twilio_sid: null,
+        });
+      }
+    } catch (err) {
+      // The signup is already saved and the alert still goes out; only the
+      // portal thread is missing, so this must not fail the submission.
+      console.error("Trial signup thread failed:", err.message);
+    }
+  }
+
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
