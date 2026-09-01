@@ -1,4 +1,5 @@
 const { saveTrialSignup, findOrCreateConversation, saveMessage } = require("./store");
+const { notifyDevices } = require("./webpush");
 
 // Vercel serverless function: receives the trial-form POST from the landing
 // page. Saves the signup to Supabase first, then emails an alert via Resend.
@@ -113,6 +114,16 @@ module.exports = async (req, res) => {
       // The signup is already saved and the alert still goes out; only the
       // portal thread is missing, so this must not fail the submission.
       console.error("Trial signup thread failed:", err.message);
+    }
+
+    // Buzz the phone once the thread exists. Someone who filled in a form is
+    // every bit as warm as someone who texted, and until now the form was the
+    // one path that only produced an email.
+    try {
+      const pushed = await notifyDevices();
+      if (pushed && pushed.error) console.error("Form lead push:", pushed.error);
+    } catch (err) {
+      console.error("Form lead push failed:", err && err.message);
     }
   }
 
