@@ -121,9 +121,13 @@
 
   @media (max-width: 720px) {
     #app.on { flex-direction: column; }
-    aside { width: 100%; border-right: 0; border-bottom: 1px solid var(--line); max-height: 42%; }
+    /* One pane at a time on a phone: the list fills the screen until you open a
+       conversation, then the conversation does. An earlier 42% cap on the list
+       left two thirds of the screen empty black, which reads as a broken app. */
+    aside { width: 100%; flex: 1; min-height: 0; border-right: 0; border-bottom: 0; }
     #app.reading aside { display: none; }
     #app:not(.reading) main { display: none; }
+    .composer { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
   }
 </style>
 </head>
