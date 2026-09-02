@@ -102,6 +102,22 @@
   .composer textarea { resize: none; min-height: 44px; max-height: 140px; }
   .empty { margin: auto; color: var(--muted); text-align: center; padding: 40px; }
 
+  /* ---------- conversation header ---------- */
+  /* Without this the first message bubble sits underneath the iPhone status
+     bar - the app is standalone and draws edge to edge, so nothing else pushes
+     it down. It also holds the only way back to the list on a phone. */
+  #convhead { flex-shrink: 0; }
+  #convhead .who { flex: 1; min-width: 0; text-align: center; }
+  #convhead b { display: block; font-size: 15px; }
+  #convhead .num { color: var(--muted); font-size: 12px; }
+  #back { font-size: 15px; padding: 4px 8px; margin-left: -8px; }
+  /* Keeps the name optically centred against the back button's width. */
+  #convhead .spacer { width: 44px; flex-shrink: 0; }
+  @media (min-width: 721px) {
+    #back, #convhead .spacer { display: none; }
+    #convhead .who { text-align: left; }
+  }
+
   /* ---------- notifications banner ---------- */
   #notif {
     display: none; padding: 11px 16px; border-bottom: 1px solid var(--line);
@@ -160,6 +176,14 @@
     <div id="list"></div>
   </aside>
   <main>
+    <div class="head" id="convhead" style="display:none">
+      <button id="back" class="linkbtn" type="button" aria-label="Back to all conversations">‹ All</button>
+      <div class="who">
+        <b id="convName"></b>
+        <span class="num" id="convNum"></span>
+      </div>
+      <span class="spacer"></span>
+    </div>
     <div id="msgs"><p class="empty">Pick a conversation.</p></div>
     <div class="composer" id="composer" style="display:none">
       <textarea id="reply" rows="1" placeholder="Write a text…"></textarea>
@@ -229,8 +253,14 @@
     if (!current) {
       box.appendChild(el("p", "empty", "Pick a conversation."));
       $("composer").style.display = "none";
+      $("convhead").style.display = "none";
       return;
     }
+    $("convhead").style.display = "flex";
+    $("convName").textContent = current.name || prettyPhone(current.phone);
+    // If we have a name the number would otherwise be invisible, and it is the
+    // one thing worth being able to read off the screen while on the phone.
+    $("convNum").textContent = current.name ? prettyPhone(current.phone) : "";
     if (!current.messages.length) {
       box.appendChild(el("p", "empty", "No messages yet."));
     }
@@ -329,6 +359,32 @@
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendReply();
   });
   $("refresh").addEventListener("click", function () { load(); });
+
+  // Back to the list. Deliberately keeps `current` set so returning to the
+  // thread does not lose your place, and does not touch the URL - this runs as
+  // an installed app, where a history entry per tap is a trap.
+  function goBack() {
+    $("app").classList.remove("reading");
+    $("sendNote").textContent = "";
+  }
+  $("back").addEventListener("click", goBack);
+
+  // The iPhone's edge swipe does nothing in a standalone PWA, so give the
+  // gesture people will try anyway something to do.
+  (function () {
+    var x0 = null, y0 = null;
+    var box = document.querySelector("main");
+    box.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 1) { x0 = null; return; }
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    box.addEventListener("touchend", function (e) {
+      if (x0 === null || x0 > 40) return;
+      var t = e.changedTouches[0];
+      if (t.clientX - x0 > 70 && Math.abs(t.clientY - y0) < 50) goBack();
+      x0 = null;
+    }, { passive: true });
+  })();
 
   // ---- notifications -----------------------------------------------------
   //
