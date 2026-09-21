@@ -184,8 +184,33 @@ const ICONS = {
     "ZUednJJUohA2i/Jbatsdo+/qmqWWNj41w/OVVhxdVSXG7Q8OtW/8ABa3a4nMmSYbAAAAAElFTkSuQmCC",
 };
 
+// /api/icon?n=keepalive  daily Vercel cron target (see vercel.json). Touches
+// Supabase once so the free-tier project never hits the 7-day inactivity pause.
+// Lives here rather than in its own file because the Hobby plan caps a
+// deployment at 12 serverless functions and this project is at the cap.
+async function keepalive(req, res) {
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.authorization !== "Bearer " + secret) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const base = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!base || !key) return res.status(500).json({ ok: false, error: "Supabase env not set" });
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    const r = await fetch(base.replace(/\/+$/, "") + "/rest/v1/conversations?select=id&limit=1", {
+      headers: { apikey: key, Authorization: "Bearer " + key },
+    });
+    const body = await r.text();
+    return res.status(r.ok ? 200 : 502).json({ ok: r.ok, status: r.status, at: new Date().toISOString(), body: body.slice(0, 200) });
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: String(e) });
+  }
+}
+
 module.exports = (req, res) => {
   const n = new URL(req.url, "http://x").searchParams.get("n");
+  if (n === "keepalive") return keepalive(req, res);
   const data = ICONS[n];
   if (!data) return res.status(404).json({ error: "No such icon" });
 
