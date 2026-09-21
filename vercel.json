@@ -1,5 +1,8 @@
 {
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/keepalive", "destination": "/api/icon?n=keepalive" }
+  ],
   "crons": [
     { "path": "/api/keepalive", "schedule": "0 16 * * *" }
   ]
