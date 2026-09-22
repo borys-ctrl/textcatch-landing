@@ -355,14 +355,10 @@
          '<div class="note" style="margin:0">' + s.textsUsed + ' of ' + s.textsCap + ' texts this month · texting from ' + esc(fmtPhone(s.dedicated ? s.number : null)) + '</div>' +
          '<div class="usage"><i class="' + cls + '" style="width:' + pct + '%"></i></div>' +
          (pct >= 100 ? '<p class="note" style="color:#e25555">Cap reached: leads still arrive by email and here, but texts are paused until next month or an upgrade.</p>' : '');
-    h += '<h3>3. Plan</h3><div class="plans">' + ["free", "starter", "pro", "business"].map(function (id) {
-      var p = plans[id]; if (!p) return "";
-      var cur = id === s.plan;
-      var btn = cur ? '<button type="button" class="ghost" disabled>Current plan</button>'
-        : (id === "free" ? '<button type="button" class="ghost" data-portal="1">Manage / cancel</button>'
-        : '<button type="button" data-plan="' + id + '">' + (plans[s.plan] && plans[s.plan].price > p.price ? "Switch" : "Upgrade") + '</button>');
-      return '<div class="plan' + (cur ? " cur" : "") + '"><b>' + esc(p.name) + ' - $' + p.price + '/mo</b><small>' + p.texts + ' texts/mo · ' + (p.dedicatedNumber ? "own number" : "shared number") + (p.branding ? "" : " · no branding") + '</small>' + btn + '</div>';
-    }).join("") + '</div>' + (s.plan !== "free" ? '<p class="note"><a href="#" id="portalLink">Manage billing, invoices or cancel</a></p>' : '');
+    var started = s.createdAt ? new Date(s.createdAt) : null;
+    var daysLeft = started ? Math.max(0, 14 - Math.floor((Date.now() - started.getTime()) / 86400000)) : null;
+    h += '<h3>3. Your trial</h3><div class="plan cur"><b>Free trial' + (daysLeft === null ? '' : ' · ' + daysLeft + ' day' + (daysLeft === 1 ? '' : 's') + ' left') + '</b>' +
+         '<small>No card on file. We will email you before it ends; nothing is charged automatically.</small></div>';
     h += '<h3>4. Widget settings</h3>' +
          '<label>Business name</label><input type="text" id="setBiz" value="' + esc(s.businessName) + '">' +
          '<label style="margin-top:8px">Who replies (name shown in chat)</label><input type="text" id="setAgent" value="' + esc(s.agentName || "") + '">' +
@@ -376,7 +372,7 @@
       var t = $("snip").textContent;
       (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $("copySnip").textContent = "Copied"; }).catch(function () { window.prompt("Copy this line:", t); });
     });
-    body.querySelectorAll("[data-plan]").forEach(function (b) {
+    body.querySelectorAll("[data-plan]").forEach(function (b) { // (unused while only the trial exists)
       b.addEventListener("click", async function () {
         b.disabled = true; b.textContent = "Opening checkout…";
         try {
@@ -408,7 +404,7 @@
       var j = await r.json();
       mySites = j.sites || []; plans = j.plans || {};
       var first = mySites[0];
-      $("sideNum").textContent = first ? (first.dedicated ? prettyPhone(first.number) : "shared number · " + first.planName) : "";
+      $("sideNum").textContent = first ? (first.dedicated ? prettyPhone(first.number) : "Free trial") : "";
       if ($("setup").classList.contains("on")) renderSetup();
     } catch (e) { console.error("sites load failed", e); }
   }
