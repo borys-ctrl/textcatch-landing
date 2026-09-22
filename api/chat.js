@@ -1,47 +1,27 @@
-const { getSite } = require("./sites");
+const { getSite, textsUsedThisMonth } = require("../lib/sites");
 const { saveLead, findOrCreateConversation, saveMessage } = require("../lib/store");
-const { sendLeadEmail } = require("./notify");
+const { sendLeadEmail } = require("../lib/notify");
 const { notifyDevices } = require("../lib/webpush");
+const twilio = require("../lib/twilio");
 
 // Vercel serverless function: receives the chat widget's lead POST and sends two
 // SMS via Twilio — #1 a confirmation to the visitor, #2 a lead alert to the owner.
 // All credentials come from env vars (never hardcoded):
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, OWNER_PHONE_NUMBER
 
-async function sendSms({ sid, token, from, to, body }) {
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
-  const auth = Buffer.from(`${sid}:${token}`).toString("base64");
-  const params = new URLSearchParams({ To: to, From: from, Body: body });
-
-  const r = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: params,
-  });
-
-  if (!r.ok) {
-    const detail = await r.text();
-    throw new Error(`Twilio ${r.status}: ${detail}`);
-  }
-  return r.json();
-}
-
 module.exports = async (req, res) => {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
+  if (req.method !== "POST" && req.method !== "OPTIONS") {
+    res.setHeader("Allow", "POST, OPTIONS");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token || !from) {
-    console.error("Twilio env vars missing", {
-      sid: !!sid, token: !!token, from: !!from,
-    });
+  // CORS: the widget runs on customer domains and posts here cross-origin.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(204).end();
+
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    console.error("Twilio env vars missing");
     return res.status(500).json({ error: "SMS not configured" });
   }
 
@@ -62,13 +42,21 @@ module.exports = async (req, res) => {
   // Resolve which customer this lead belongs to. The widget sends a siteId;
   // sites.js maps it to that business name and the phone to alert. We do NOT
   // trust a client-supplied business name — it is display text on the SMS.
-  const site = getSite(body.siteId);
+  const site = await getSite(body.siteId);
   if (!site) {
     console.error("Unknown siteId", body.siteId);
     return res.status(400).json({ error: "Unknown site" });
   }
   const businessName = site.businessName.slice(0, 25);
   const owner = site.ownerPhone;
+  const from = site.fromNumber;
+
+  // Plan cap. A lead is never lost: past the cap the owner still gets the
+  // email and the portal thread, only the texts stop until next month.
+  const used = await textsUsedThisMonth(site.id);
+  const capLeft = Math.max(0, site.plan.texts - used);
+  const overCap = capLeft <= 0;
+  if (overCap) console.log("Site over text cap", { site: site.id, plan: site.planId, used: used });
 
   if (!phone) {
     return res.status(400).json({ error: "Missing phone number" });
@@ -95,9 +83,12 @@ module.exports = async (req, res) => {
     `${comment || "—"}`;
 
   // Only send visitor confirmation SMS if they opted in; always alert the owner.
-  const visitorPromise = smsConsent
-    ? sendSms({ sid, token, from, to: phone, body: visitorMsg })
-    : Promise.resolve({ skipped: true, reason: "no SMS consent" });
+  const visitorPromise = (smsConsent && !overCap)
+    ? twilio.sendSms({ from, to: phone, body: visitorMsg })
+    : Promise.resolve({ skipped: true, reason: overCap ? "over plan cap" : "no SMS consent" });
+  const ownerPromise = (owner && !overCap)
+    ? twilio.sendSms({ from, to: owner, body: ownerMsg })
+    : Promise.resolve({ skipped: true, reason: owner ? "over plan cap" : "no owner phone" });
 
   // Persist the lead. Runs alongside the sends rather than before them so a
   // slow or broken lead log can never delay or block the customer alert.
@@ -115,6 +106,7 @@ module.exports = async (req, res) => {
   const emailPromise = sendLeadEmail({
     siteId: site.id,
     businessName: businessName,
+    to: site.ownerEmail ? [site.ownerEmail] : undefined,
     name: name,
     phone: phone,
     email: email,
@@ -144,7 +136,7 @@ module.exports = async (req, res) => {
 
     // And the confirmation we auto-send, so the thread reads the way the
     // lead actually experienced it rather than skipping our half.
-    if (smsConsent) {
+    if (smsConsent && !overCap) {
       await saveMessage({
         conversation_id: convo.id,
         direction: "outbound",
@@ -159,7 +151,7 @@ module.exports = async (req, res) => {
 
   const [visitorRes, ownerRes, saveRes, emailRes, threadRes] = await Promise.allSettled([
     visitorPromise,
-    sendSms({ sid, token, from, to: owner, body: ownerMsg }),
+    ownerPromise,
     savePromise,
     emailPromise,
     threadPromise,
@@ -188,21 +180,22 @@ module.exports = async (req, res) => {
   // the push carries no content, so the phone immediately asks the API what
   // happened, and firing early would race it to an empty inbox.
   try {
-    const pushed = await notifyDevices();
+    const pushed = await notifyDevices(site.ownerEmail);
     if (pushed && pushed.error) console.error("Widget lead push:", pushed.error);
   } catch (err) {
     console.error("Widget lead push failed:", err && err.message);
   }
 
-  // If both failed, surface an error. If only one failed, the lead is still
-  // captured (owner alert is the critical leg) — log it but return ok.
+  // If both texts failed (not skipped), surface an error. The lead is still
+  // saved and emailed, so this only tells the widget to show a softer message.
   if (visitorRes.status === "rejected" && ownerRes.status === "rejected") {
     return res.status(502).json({ error: "Failed to send SMS" });
   }
 
   return res.status(200).json({
     ok: true,
-    visitorSms: smsConsent && visitorRes.status === "fulfilled",
+    overCap: overCap,
+    visitorSms: smsConsent && !overCap && visitorRes.status === "fulfilled",
     ownerSms: ownerRes.status === "fulfilled",
     saved: saveRes.status === "fulfilled" && !saveRes.value?.skipped,
     threaded: threadRes.status === "fulfilled" && !threadRes.value?.skipped,

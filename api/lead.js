@@ -1,24 +1,33 @@
-const { saveTrialSignup, findOrCreateConversation, saveMessage } = require("../lib/store");
-const { notifyDevices } = require("../lib/webpush");
-
-// Vercel serverless function: receives the trial-form POST from the landing
-// page. Saves the signup to Supabase first, then emails an alert via Resend.
+// POST /api/lead  - self-serve signup. (Kept at this path so the landing page
+// form and any old links keep working; it used to just email Borys.)
 //
-// Credentials come from env vars (never hardcoded):
-//   resend_textcatch  API key for the textcatchapp Resend account
-//   SUPABASE_URL / SUPABASE_SERVICE_KEY  used by ./store
+// Body: { business, email, phone, website, agentName }
+//
+// Creates a site on the free plan, emails the owner a sign-in link to the
+// portal (where the install snippet lives), and alerts the admin. Returns the
+// siteId and the one-line snippet so the page can show it immediately.
 
-// textcatch.app is verified in Resend, so we can send from it to anyone.
-const TO = ["textcatchapp@gmail.com", "borys@bestflooringhonolulu.com"];
-// Resend's shared sender works without verifying a domain, but only delivers to
-// the Resend account owner's address — fine for this smoke test. Swap this for an
-// address on a verified domain once you have one.
-const FROM = "TextCatch <hello@textcatch.app>";
+const { createSite, getSitesByOwner, makeSiteId } = require("../lib/sites");
+const { makeLoginToken } = require("../lib/auth");
+const { sendEmail } = require("../lib/notify");
+const { saveTrialSignup } = require("../lib/store");
 
-function escapeHtml(s) {
-  return String(s || "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
+function baseUrl(req) {
+  var host = req.headers["x-forwarded-host"] || req.headers.host || "www.textcatch.app";
+  var proto = req.headers["x-forwarded-proto"] || "https";
+  return proto + "://" + host;
+}
+
+function snippetFor(siteId) {
+  return '<script src="https://www.textcatch.app/textcatch-widget.js" data-site="' + siteId + '" async></script>';
+}
+
+function normPhone(raw) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return "+1" + digits;
+  if (digits.length === 11 && digits[0] === "1") return "+" + digits;
+  return "+" + digits;
 }
 
 module.exports = async (req, res) => {
@@ -27,135 +36,85 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Belongs to the textcatchapp Resend account, which owns the verified
-  // textcatch.app domain we send from. Lowercase name matches Vercel.
-  const apiKey = process.env.resend_textcatch;
-  if (!apiKey) {
-    console.error("resend_textcatch is not set");
-    return res.status(500).json({ error: "Email not configured" });
-  }
-
-  // Body may already be parsed (Vercel does this for JSON), or arrive as a string.
   let body = req.body;
-  if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch { body = {}; }
-  }
+  if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
   body = body || {};
 
-  const name = (body.name || "").toString().trim();
-  const email = (body.email || "").toString().trim();
-  const business = (body.business || "").toString().trim();
-  const website = (body.website || "").toString().trim();
-  const phoneRaw = (body.phone || "").toString().trim();
-  const smsConsent = body.smsConsent === true;
+  const business = (body.business || body.businessName || "").toString().trim().slice(0, 60);
+  const email = (body.email || "").toString().trim().toLowerCase().slice(0, 120);
+  const website = (body.website || "").toString().trim().slice(0, 200);
+  const agentName = (body.agentName || body.name || "").toString().trim().slice(0, 30);
+  const phone = normPhone(body.phone);
 
-  if (!name && !email && !business) {
-    return res.status(400).json({ error: "Empty submission" });
-  }
+  if (!business) return res.status(400).json({ error: "What is the business called?" });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email" });
+  if (!phone || phone.replace(/\D/g, "").length < 11) return res.status(400).json({ error: "Enter the mobile number that should receive lead alerts" });
 
-  // Same normalisation the widget uses, so a number typed as (808) 555-0148
-  // here and +18085550148 there resolve to one conversation rather than two.
-  const digits = phoneRaw.replace(/\D/g, "");
-  const phone = !digits ? ""
-    : digits.length === 10 ? "+1" + digits
-    : digits.length === 11 && digits[0] === "1" ? "+" + digits
-    : "+" + digits;
-
-  const html = `
-    <h2>New lead at TextCatch</h2>
-    <table cellpadding="6" style="border-collapse:collapse;font-family:sans-serif">
-      <tr><td><strong>Name</strong></td><td>${escapeHtml(name) || "—"}</td></tr>
-      <tr><td><strong>Email</strong></td><td>${escapeHtml(email) || "—"}</td></tr>
-      <tr><td><strong>Business</strong></td><td>${escapeHtml(business) || "—"}</td></tr>
-      <tr><td><strong>Phone</strong></td><td>${escapeHtml(phoneRaw) || "—"}</td></tr>
-      <tr><td><strong>Website</strong></td><td>${escapeHtml(website) || "—"}</td></tr>
-    </table>`;
-
-  const text =
-    `New lead at TextCatch\n\n` +
-    `Name: ${name || "—"}\n` +
-    `Email: ${email || "—"}\n` +
-    `Business: ${business || "—"}\n` +
-    `Phone: ${phoneRaw || "—"}\n` +
-    `Website: ${website || "—"}\n`;
-
-  // Persist first. A signup that reaches the database but not the inbox is
-  // recoverable; one that only ever existed as an email is not.
-  let stored = false;
+  // Free plan = one site per email. A second signup from the same address
+  // just re-sends the sign-in link for the site they already have.
+  let site = null;
   try {
-    const res = await saveTrialSignup({ name: name || null, email: email || null,
-                                        business: business || null, website: website || null });
-    stored = !res.skipped;
+    const mine = await getSitesByOwner(email);
+    if (mine.length) site = mine[0];
   } catch (err) {
-    console.error("Trial signup save failed:", err.message);
+    console.error("Signup owner lookup failed:", err && err.message);
   }
-  // A form signup should reach the portal exactly like a widget lead, so both
-  // roads lead to one inbox. Needs a phone number: conversations are keyed on
-  // it, and without one there is nobody to text back.
-  if (phone && phone.replace(/\D/g, "").length >= 11) {
-    try {
-      const convo = await findOrCreateConversation("textcatch", phone, name || null);
-      if (convo && !convo.skipped && convo.id) {
-        await saveMessage({
-          conversation_id: convo.id,
-          direction: "inbound",
-          body:
-            "Asked for a trial via the form." +
-            (business ? " Business: " + business + "." : "") +
-            (website ? " Site: " + website + "." : "") +
-            (email ? " Email: " + email + "." : "") +
-            (smsConsent ? " Agreed to be texted." : " Did NOT tick the text consent box."),
-          from_number: phone,
-          to_number: process.env.TWILIO_PHONE_NUMBER || null,
-          twilio_sid: null,
-        });
-      }
-    } catch (err) {
-      // The signup is already saved and the alert still goes out; only the
-      // portal thread is missing, so this must not fail the submission.
-      console.error("Trial signup thread failed:", err.message);
-    }
 
-    // Buzz the phone once the thread exists. Someone who filled in a form is
-    // every bit as warm as someone who texted, and until now the form was the
-    // one path that only produced an email.
+  let created = false;
+  if (!site) {
     try {
-      const pushed = await notifyDevices();
-      if (pushed && pushed.error) console.error("Form lead push:", pushed.error);
+      site = await createSite({
+        id: makeSiteId(business),
+        business_name: business,
+        agent_name: agentName || null,
+        owner_email: email,
+        owner_phone: phone,
+        website: website || null,
+        plan: "free",
+        branding: true,
+      });
+      created = true;
     } catch (err) {
-      console.error("Form lead push failed:", err && err.message);
+      console.error("Signup create failed:", err && err.message);
+      return res.status(502).json({ error: "Could not create your account. Try again in a minute." });
     }
   }
 
+  // Legacy log of trial signups; harmless if the table is gone.
+  try { await saveTrialSignup({ name: agentName || null, email: email, business: business, website: website || null }); } catch (e) {}
+
+  const secret = process.env.PORTAL_SECRET;
+  const link = secret
+    ? baseUrl(req) + "/api/portal/verify?token=" + encodeURIComponent(makeLoginToken(email, secret))
+    : baseUrl(req) + "/app";
+  const snippet = snippetFor(site.id);
+
+  const NL = String.fromCharCode(10);
   try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: FROM,
-        to: TO,
-        reply_to: email || undefined,
-        subject: "New lead at textcatch",
-        html,
-        text,
-      }),
+    await sendEmail({
+      to: [email],
+      subject: created ? "Your TextCatch widget is ready" : "Sign in to TextCatch",
+      text: (created ? "Welcome to TextCatch." : "Here is your sign-in link.") + NL + NL +
+        "Paste this one line into your website, right before </body>:" + NL + NL + snippet + NL + NL +
+        "Open your inbox and settings: " + link + NL + NL +
+        "The link works once and expires in 15 minutes; request a new one from the sign-in page any time.",
+      html: "<p>" + (created ? "Welcome to TextCatch." : "Here is your sign-in link.") + "</p>" +
+        "<p>Paste this one line into your website, right before <code>&lt;/body&gt;</code>:</p>" +
+        "<pre style=\"background:#f4f4f5;padding:12px;border-radius:8px;white-space:pre-wrap\">" +
+        snippet.replace(/</g, "&lt;") + "</pre>" +
+        "<p><a href=\"" + link + "\">Open your inbox and settings</a></p>" +
+        "<p style=\"color:#666;font-size:13px\">The link works once and expires in 15 minutes; request a new one from the sign-in page any time.</p>",
     });
-
-    if (!r.ok) {
-      const detail = await r.text();
-      console.error("Resend error", r.status, detail);
-      // The alert failed, but if the signup is in the database it is not lost.
-      // Only surface an error to the visitor when we have kept nothing at all.
-      if (stored) return res.status(200).json({ ok: true, emailed: false });
-      return res.status(502).json({ error: "Failed to send email" });
-    }
-
-    return res.status(200).json({ ok: true });
   } catch (err) {
-    console.error("Lead handler error", err);
-    return res.status(500).json({ error: "Unexpected error" });
+    console.error("Signup email failed:", err && err.message);
   }
+
+  // Admin alert. Never blocks the response.
+  sendEmail({
+    subject: (created ? "New signup: " : "Returning signup: ") + business,
+    text: "Business: " + business + NL + "Email: " + email + NL + "Phone: " + phone + NL + "Website: " + (website || "-") + NL + "Site id: " + site.id,
+    html: "<p><b>" + business + "</b><br>" + email + "<br>" + phone + "<br>" + (website || "-") + "<br>site: " + site.id + "</p>",
+  }).catch(function (err) { console.error("Signup admin alert failed:", err && err.message); });
+
+  return res.status(200).json({ ok: true, created: created, siteId: site.id, snippet: snippet, plan: site.planId });
 };

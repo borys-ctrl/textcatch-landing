@@ -1,4 +1,4 @@
-const { requireSession } = require("./auth");
+const { requireSiteAccess } = require("../../lib/auth");
 
 // GET /api/portal/threads
 //
@@ -23,15 +23,22 @@ module.exports = async (req, res) => {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Method not allowed" });
   }
-  if (!requireSession(req, res)) return;
+  var access = await requireSiteAccess(req, res, null);
+  if (!access) return;
 
   try {
     // One request. PostgREST embeds the messages, so a busy inbox does not
-    // become one query per thread.
+    // become one query per thread. Owners see only their sites' threads.
+    var filter = "";
+    if (!access.all) {
+      var ids = (access.sites || []).map(function (s) { return s.id; });
+      if (!ids.length) return res.status(200).json({ ok: true, threads: [] });
+      filter = "&site_id=in.(" + ids.map(encodeURIComponent).join(",") + ")";
+    }
     var rows = await supabase(
       "conversations?select=id,site_id,lead_phone,lead_name,last_message_at,created_at," +
       "messages(id,direction,body,created_at,twilio_sid)" +
-      "&order=last_message_at.desc&limit=200"
+      "&order=last_message_at.desc&limit=200" + filter
     );
 
     var threads = (rows || []).map(function (c) {
@@ -41,6 +48,7 @@ module.exports = async (req, res) => {
       var last = msgs.length ? msgs[msgs.length - 1] : null;
       return {
         id: c.id,
+        siteId: c.site_id,
         phone: c.lead_phone,
         name: c.lead_name || null,
         lastMessageAt: c.last_message_at,

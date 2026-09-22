@@ -1,11 +1,13 @@
-const { makeLoginToken } = require("./auth");
-const { sendEmail } = require("../notify");
+const { makeLoginToken, isAdmin } = require("../../lib/auth");
+const { sendEmail } = require("../../lib/notify");
+const { getSitesByOwner } = require("../../lib/sites");
 
 // POST /api/portal/login  { email }
 //
-// Emails a one-time sign-in link. Always answers "check your inbox", whatever
-// address was submitted: replying differently for a valid address would turn
-// this into an oracle telling a stranger who has access.
+// Emails a one-time sign-in link to the admin or to any address that owns a
+// site. Always answers "check your inbox", whatever address was submitted:
+// replying differently for a valid address would turn this into an oracle
+// telling a stranger who has access.
 
 function baseUrl(req) {
   var host = req.headers["x-forwarded-host"] || req.headers.host || "textcatch.app";
@@ -34,17 +36,22 @@ module.exports = async (req, res) => {
   // The generic reply, sent no matter what happens below.
   var ok = { ok: true, message: "If that address has access, a sign-in link is on its way." };
 
-  if (email !== allowed.toLowerCase()) {
-    console.log("Portal login attempted for a non-allowed address");
+  var known = isAdmin(email);
+  if (!known) {
+    try { known = (await getSitesByOwner(email)).length > 0; }
+    catch (e) { console.error("Login owner lookup failed:", e && e.message); }
+  }
+  if (!known) {
+    console.log("Portal login attempted for an unknown address");
     return res.status(200).json(ok);
   }
 
   var link = baseUrl(req) + "/api/portal/verify?token=" +
-    encodeURIComponent(makeLoginToken(allowed, secret));
+    encodeURIComponent(makeLoginToken(email, secret));
 
   try {
     await sendEmail({
-      to: [allowed],
+      to: [email],
       subject: "Sign in to TextCatch",
       text: "Tap to sign in. The link works once and expires in 15 minutes." +
         String.fromCharCode(10) + String.fromCharCode(10) + link,

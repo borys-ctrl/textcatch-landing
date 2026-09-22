@@ -37,6 +37,26 @@
   }
   a { color: var(--accent); }
 
+  /* ---------- setup / plan panel ---------- */
+  #setup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 50; overflow: auto; padding: 24px 12px; }
+  #setup.on { display: block; }
+  #setup .card { max-width: 640px; margin: 0 auto; }
+  #setup h3 { margin: 18px 0 8px; font-size: 15px; }
+  #setup .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  #setup input[type=text], #setup input[type=tel], #setup select { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit; }
+  #setup pre { background: #0d0d0f; color: #c8f5e0; padding: 12px; border-radius: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-all; margin: 8px 0; }
+  #setup .plans { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  #setup .plan { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel2); }
+  #setup .plan.cur { border-color: var(--accent); }
+  #setup .plan b { display: block; font-size: 16px; }
+  #setup .plan small { color: var(--muted); display: block; margin: 2px 0 8px; }
+  #setup .plan button { width: 100%; padding: 8px; font-size: 13px; }
+  #setup .ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  .usage { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; margin: 6px 0 2px; }
+  .usage i { display: block; height: 100%; background: var(--accent); }
+  .usage i.warn { background: #e2a955; }
+  .usage i.over { background: #e25555; }
+
   /* ---------- sign in ---------- */
   #signin { display: none; min-height: 100%; align-items: center; justify-content: center; padding: 24px; }
   #signin.on { display: flex; }
@@ -164,9 +184,10 @@
   <aside>
     <div class="head">
       <div>
-        <b>Messages</b>
-        <span class="num">(808) 977-6179</span>
+        <b id="sideTitle">Messages</b>
+        <span class="num" id="sideNum"></span>
       </div>
+      <button id="setupBtn" class="linkbtn" type="button">Setup &amp; plan</button>
       <button id="refresh" class="linkbtn">Refresh</button>
     </div>
     <div id="notif">
@@ -191,6 +212,16 @@
     </div>
     <p id="sendNote" class="note" style="margin:0 16px 12px"></p>
   </main>
+</section>
+
+<section id="setup" onclick="if(event.target===this)this.classList.remove('on')">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <p class="brand" style="margin:0">Setup <span>&amp; plan</span></p>
+      <button class="linkbtn" type="button" id="setupClose">Close</button>
+    </div>
+    <div id="setupBody"><p class="note">Loading…</p></div>
+  </div>
 </section>
 
 <script>
@@ -234,7 +265,7 @@
     var list = $("list");
     list.textContent = "";
     if (!threads.length) {
-      list.appendChild(el("p", "empty", "No conversations yet. Text (808) 977-6179 to make one."));
+      list.appendChild(el("p", "empty", "No conversations yet. Install the widget (Setup & plan) and send yourself a test."));
       return;
     }
     threads.forEach(function (t) {
@@ -295,6 +326,95 @@
     renderThread();
     return true;
   }
+
+  // ---- setup & plan ----
+  var mySites = [];
+  var plans = {};
+  var selectedSite = null;
+
+  function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  function fmtPhone(p) { return p ? prettyPhone(p) : "shared TextCatch number"; }
+
+  function renderSetup() {
+    var body = $("setupBody");
+    if (!mySites.length) { body.innerHTML = '<p class="note">No sites on this account yet. Sign up at <a href="/">textcatch.app</a>.</p>'; return; }
+    var s = mySites.filter(function (x) { return x.siteId === selectedSite; })[0] || mySites[0];
+    selectedSite = s.siteId;
+    var pct = s.textsCap ? Math.min(100, Math.round(100 * s.textsUsed / s.textsCap)) : 0;
+    var cls = pct >= 100 ? " over" : pct >= 80 ? " warn" : "";
+    var h = "";
+    if (mySites.length > 1) {
+      h += '<label>Site</label><select id="siteSel">' + mySites.map(function (x) {
+        return '<option value="' + esc(x.siteId) + '"' + (x.siteId === s.siteId ? " selected" : "") + '>' + esc(x.businessName) + ' (' + esc(x.siteId) + ')</option>';
+      }).join("") + '</select>';
+    }
+    h += '<h3>1. Install</h3><p class="note" style="margin:0">Paste this one line into your website, right before &lt;/body&gt;.</p>' +
+         '<pre id="snip">' + esc(s.snippet) + '</pre><button type="button" class="ghost" id="copySnip">Copy snippet</button>';
+    h += '<h3>2. Usage - ' + esc(s.planName) + ' plan</h3>' +
+         '<div class="note" style="margin:0">' + s.textsUsed + ' of ' + s.textsCap + ' texts this month · texting from ' + esc(fmtPhone(s.dedicated ? s.number : null)) + '</div>' +
+         '<div class="usage"><i class="' + cls + '" style="width:' + pct + '%"></i></div>' +
+         (pct >= 100 ? '<p class="note" style="color:#e25555">Cap reached: leads still arrive by email and here, but texts are paused until next month or an upgrade.</p>' : '');
+    h += '<h3>3. Plan</h3><div class="plans">' + ["free", "starter", "pro", "business"].map(function (id) {
+      var p = plans[id]; if (!p) return "";
+      var cur = id === s.plan;
+      var btn = cur ? '<button type="button" class="ghost" disabled>Current plan</button>'
+        : (id === "free" ? '<button type="button" class="ghost" data-portal="1">Manage / cancel</button>'
+        : '<button type="button" data-plan="' + id + '">' + (plans[s.plan] && plans[s.plan].price > p.price ? "Switch" : "Upgrade") + '</button>');
+      return '<div class="plan' + (cur ? " cur" : "") + '"><b>' + esc(p.name) + ' - $' + p.price + '/mo</b><small>' + p.texts + ' texts/mo · ' + (p.dedicatedNumber ? "own number" : "shared number") + (p.branding ? "" : " · no branding") + '</small>' + btn + '</div>';
+    }).join("") + '</div>' + (s.plan !== "free" ? '<p class="note"><a href="#" id="portalLink">Manage billing, invoices or cancel</a></p>' : '');
+    h += '<h3>4. Widget settings</h3>' +
+         '<label>Business name</label><input type="text" id="setBiz" value="' + esc(s.businessName) + '">' +
+         '<label style="margin-top:8px">Who replies (name shown in chat)</label><input type="text" id="setAgent" value="' + esc(s.agentName || "") + '">' +
+         '<label style="margin-top:8px">Mobile for lead alerts</label><input type="tel" id="setPhone" value="' + esc(s.ownerPhone || "") + '">' +
+         '<label style="margin-top:8px">Accent colour</label><input type="text" id="setAccent" value="' + esc(s.accent || "#16B57A") + '" placeholder="#16B57A">' +
+         '<div class="row" style="margin-top:10px"><button type="button" id="saveSet">Save</button><span class="note" id="setNote"></span></div>';
+    body.innerHTML = h;
+
+    var sel = $("siteSel"); if (sel) sel.addEventListener("change", function () { selectedSite = sel.value; renderSetup(); });
+    $("copySnip").addEventListener("click", function () {
+      var t = $("snip").textContent;
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $("copySnip").textContent = "Copied"; }).catch(function () { window.prompt("Copy this line:", t); });
+    });
+    body.querySelectorAll("[data-plan]").forEach(function (b) {
+      b.addEventListener("click", async function () {
+        b.disabled = true; b.textContent = "Opening checkout…";
+        try {
+          var r = await fetch("/api/billing?action=checkout", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siteId: s.siteId, plan: b.getAttribute("data-plan") }) });
+          var j = await r.json();
+          if (j.url) location.href = j.url; else { b.disabled = false; b.textContent = "Upgrade"; alert(j.error || "Could not start checkout"); }
+        } catch (e) { b.disabled = false; b.textContent = "Upgrade"; alert("Network error"); }
+      });
+    });
+    var pl = $("portalLink") || body.querySelector("[data-portal]");
+    if (pl) pl.addEventListener("click", async function (e) {
+      e.preventDefault();
+      var r = await fetch("/api/billing?action=portal", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siteId: s.siteId }) });
+      var j = await r.json(); if (j.url) location.href = j.url; else alert(j.error || "No billing on file yet");
+    });
+    $("saveSet").addEventListener("click", async function () {
+      $("setNote").textContent = "Saving…";
+      var r = await fetch("/api/site", { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siteId: s.siteId, businessName: $("setBiz").value, agentName: $("setAgent").value, ownerPhone: $("setPhone").value, accent: $("setAccent").value }) });
+      var j = await r.json();
+      $("setNote").textContent = j.ok ? "Saved. The widget picks it up within a minute." : (j.error || "Could not save");
+      if (j.ok) loadSites();
+    });
+  }
+
+  async function loadSites() {
+    try {
+      var r = await fetch("/api/site", { credentials: "same-origin" });
+      if (!r.ok) return;
+      var j = await r.json();
+      mySites = j.sites || []; plans = j.plans || {};
+      var first = mySites[0];
+      $("sideNum").textContent = first ? (first.dedicated ? prettyPhone(first.number) : "shared number · " + first.planName) : "";
+      if ($("setup").classList.contains("on")) renderSetup();
+    } catch (e) { console.error("sites load failed", e); }
+  }
+
+  $("setupBtn").addEventListener("click", function () { $("setup").classList.add("on"); renderSetup(); loadSites(); });
+  $("setupClose").addEventListener("click", function () { $("setup").classList.remove("on"); });
 
   // ---- sign in ----
   $("send").addEventListener("click", async function () {
@@ -550,6 +670,10 @@
     if (!signedIn) { show("signin"); return; }
     clearBadge();
     initServiceWorker();
+    loadSites().then(function () {
+      var q = new URLSearchParams(location.search);
+      if (q.get("upgraded") || (!threads.length && mySites.length)) { $("setup").classList.add("on"); renderSetup(); }
+    });
   });
 
   // Quietly refresh while the tab is open, so new texts appear without a click.

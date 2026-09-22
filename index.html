@@ -187,16 +187,21 @@
   @media(max-width:720px){.why{grid-template-columns:1fr}}
 
   /* ---------- pricing ---------- */
-  .pricing{display:flex;justify-content:center}
-  .price-card{width:100%;max-width:440px;border:1.5px solid var(--ink);border-radius:22px;overflow:hidden;background:#fff}
-  .price-top{padding:34px 34px 28px;border-bottom:1px dashed var(--line)}
+  .pricing{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:stretch}
+  @media(max-width:980px){.pricing{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.pricing{grid-template-columns:1fr}}
+  .price-card{width:100%;border:1.5px solid var(--line);border-radius:22px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+  .price-card.hot{border-color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.06)}
+  .price-card .btn{margin:0 24px 22px;justify-content:center}
+  .price-card .price-list{flex:1}
+  .price-top{padding:28px 24px 22px;border-bottom:1px dashed var(--line)}
   .price-top .pl{display:inline-block;background:var(--amber);color:#3a2400;font-weight:700;
     font-family:"Space Mono";font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border-radius:7px;margin-bottom:18px}
-  .price-amt{font-family:"Bricolage Grotesque";font-weight:800;font-size:3.6rem;letter-spacing:-.03em;line-height:1}
+  .price-amt{font-family:"Bricolage Grotesque";font-weight:800;font-size:2.6rem;letter-spacing:-.03em;line-height:1}
   .price-amt span{font-size:1.05rem;color:var(--mut);font-weight:500;font-family:"Instrument Sans"}
   .price-top p{color:var(--ink-soft);margin-top:12px}
-  .price-list{padding:26px 34px 12px;list-style:none}
-  .price-list li{display:flex;gap:12px;align-items:flex-start;padding:9px 0;font-size:1rem}
+  .price-list{padding:18px 24px 12px;list-style:none}
+  .price-list li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:.93rem}
   .price-list li svg{width:19px;height:19px;flex:none;margin-top:2px}
   .price-card .btn{display:block;width:calc(100% - 68px);margin:14px 34px 30px;text-align:center;padding:15px}
   .price-foot{text-align:center;color:var(--mut);font-size:.8rem;padding:0 34px 28px}
@@ -261,12 +266,12 @@
     <div class="cta-row">
       <button class="btn btn-primary" onclick="tryTextCatch()">Text yourself a demo</button>
       <a href="#how" class="btn btn-ghost">Or see how it works</a>
-      <button class="btn btn-ghost" onclick="openModal()">Rather we called you?</button>
+      <button class="btn btn-ghost" onclick="openModal()">Start free — get your snippet</button>
     </div>
     <div class="microproof mono">
       <span><span class="dot"></span>Installs in 5 min</span>
       <span><span class="dot"></span>Works on any site</span>
-      <span><span class="dot"></span>$49 / month</span>
+      <span><span class="dot"></span>Free to start</span>
     </div>
   </div>
 
@@ -370,23 +375,48 @@
 <section class="block" id="pricing" style="padding-top:30px"><div class="wrap">
   <div class="sec-head" style="text-align:center;margin:0 auto 40px">
     <span class="mono">Pricing</span>
-    <h2>One plan. No surprises.</h2>
+    <h2>Start free. Upgrade when the texts are paying for themselves.</h2>
+    <p style="color:var(--ink-soft);margin-top:10px">A “text” is one SMS in or out. Every plan installs itself in one line and you can change plans any time.</p>
   </div>
-  <div class="pricing"><div class="price-card">
+  <div class="pricing">
+  <div class="price-card">
     <div class="price-top">
-      <span class="pl">14 days free</span>
-      <div class="price-amt">$49<span> / month</span></div>
-      <p>Everything you need to stop losing leads. Cancel anytime.</p>
+      <span class="pl">No card needed</span>
+      <div class="price-amt">$0<span> / month</span></div>
+      <p><strong>Free.</strong> Try it on your real site.</p>
     </div>
-    <ul class="price-list">
-      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>The chat-to-text widget on your site</li>
-      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Unlimited captured leads</li>
-      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Installs on any website in minutes</li>
-      <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>You own and export all your data</li>
-    </ul>
-    <button class="btn btn-signal" onclick="tryTextCatch()">Text yourself a demo</button>
-    <div class="price-foot"><a href="#" onclick="openModal();return false;" style="color:var(--brand,#16B57A)">Prefer a form? Leave your details</a> &middot; No card required to start · Live in one business day</div>
-  </div></div>
+    <ul class="price-list"><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>30 texts / month</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Texts from the shared TextCatch number</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Lead inbox &amp; email alerts</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>“Powered by TextCatch” on the widget</li></ul>
+    <button class="btn btn-ghost" onclick="openModal('free')">Start free</button>
+  </div>
+  <div class="price-card">
+    <div class="price-top">
+      
+      <div class="price-amt">$9.99<span> / month</span></div>
+      <p><strong>Starter.</strong> For one busy site.</p>
+    </div>
+    <ul class="price-list"><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>200 texts / month</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Your own local phone number</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Lead inbox &amp; email alerts</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>“Powered by TextCatch” on the widget</li></ul>
+    <button class="btn btn-ghost" onclick="openModal('starter')">Start on Starter</button>
+  </div>
+  <div class="price-card hot">
+    <div class="price-top">
+      <span class="pl">Most popular</span>
+      <div class="price-amt">$29.99<span> / month</span></div>
+      <p><strong>Pro.</strong> Most businesses land here.</p>
+    </div>
+    <ul class="price-list"><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>1,000 texts / month</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Your own local phone number</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to 3 websites</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>No TextCatch branding</li></ul>
+    <button class="btn btn-signal" onclick="openModal('pro')">Start on Pro</button>
+  </div>
+  <div class="price-card">
+    <div class="price-top">
+      
+      <div class="price-amt">$99.99<span> / month</span></div>
+      <p><strong>Business.</strong> Agencies and multi-location.</p>
+    </div>
+    <ul class="price-list"><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>5,000 texts / month</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>A number for every site</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to 10 websites</li><li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>No TextCatch branding</li></ul>
+    <button class="btn btn-ghost" onclick="openModal('business')">Start on Business</button>
+  </div>
+  </div>
+  <div class="price-foot" style="text-align:center;margin-top:22px">Every plan starts free. You pick a paid plan inside your dashboard when you're ready · Cancel anytime · You own and export all your data</div>
 </div></section>
 
 <!-- FINAL -->
@@ -417,31 +447,34 @@
   <div class="modal">
     <button class="x" onclick="closeModal()" aria-label="Close">×</button>
     <div id="form-view">
-      <h3>Start your free trial</h3>
-      <p class="ms">Faster to just try the chat bubble &mdash; but if you would rather we came to you, leave your details. We'll get you live in a day.</p>
-      <label for="m-name">Your name</label>
-      <input id="m-name" type="text" placeholder="Jordan Mitchell" />
-      <label for="m-email">Work email</label>
-      <input id="m-email" type="email" placeholder="you@yourbusiness.com" />
+      <h3>Create your free account</h3>
+      <p class="ms">Thirty seconds. You get a one-line snippet for your site and a link to your lead inbox. No card.</p>
       <label for="m-biz">Business name</label>
       <input id="m-biz" type="text" placeholder="Coastal Plumbing Co." />
-      <label for="m-phone">Mobile number</label>
+      <label for="m-name">Who replies? <span style="color:var(--mut);font-weight:400">(first name shown in the chat)</span></label>
+      <input id="m-name" type="text" placeholder="Jordan" />
+      <label for="m-email">Work email</label>
+      <input id="m-email" type="email" placeholder="you@yourbusiness.com" />
+      <label for="m-phone">Mobile number for lead alerts</label>
       <input id="m-phone" type="tel" placeholder="(808) 555-0148" />
       <label for="m-site">Website <span style="color:var(--mut);font-weight:400">(optional)</span></label>
       <input id="m-site" type="text" placeholder="coastalplumbing.com" />
       <label class="consent-row" for="m-consent" style="display:flex;align-items:flex-start;gap:8px;margin:10px 0;cursor:pointer">
         <input id="m-consent" type="checkbox" style="width:15px;height:15px;min-width:15px;margin:2px 0 0;accent-color:var(--brand,#16B57A)" />
-        <span style="font-size:11px;color:var(--mut);line-height:1.45">I agree to receive SMS text messages from TextCatch at the number provided in response to my inquiry. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="https://www.textcatch.app/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://www.textcatch.app/terms" target="_blank" rel="noopener">Terms</a>.</span>
+        <span style="font-size:11px;color:var(--mut);line-height:1.45">I agree to receive SMS lead alerts from TextCatch at the number above. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out, HELP for help. See our <a href="https://www.textcatch.app/privacy" target="_blank" rel="noopener">Privacy Policy</a> and <a href="https://www.textcatch.app/terms" target="_blank" rel="noopener">Terms</a>.</span>
       </label>
       <div id="m-err" style="display:none;color:#e25555;font-size:12px;margin:2px 0 8px"></div>
-      <button class="btn btn-signal" onclick="submitForm()">Get early access</button>
+      <button class="btn btn-signal" id="m-submit" onclick="submitForm()">Create my account</button>
       <div class="fine">No credit card. We'll never share your info.</div>
     </div>
-    <div id="thanks-view" class="thanks" style="display:none">
-      <div class="ring"><svg viewBox="0 0 24 24" fill="none" style="width:32px;height:32px"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-      <h3>You're on the list.</h3>
-      <p>Check your email — we'll reach out within one business day to get TextCatch live on your site.</p>
-      <button class="btn btn-ghost" style="margin-top:22px" onclick="closeModal()">Done</button>
+    <div id="thanks-view" class="thanks" style="display:none;text-align:left">
+      <div class="ring" style="margin:0 auto 14px"><svg viewBox="0 0 24 24" fill="none" style="width:32px;height:32px"><path d="M5 13l4 4L19 7" stroke="#16B57A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h3 style="text-align:center">You're live. Paste this into your site.</h3>
+      <p style="text-align:center">One line, right before <code>&lt;/body&gt;</code>. Works on Shopify, Wix, WordPress, Squarespace and hand-built sites.</p>
+      <pre id="m-snippet" style="background:#111;color:#c8f5e0;padding:14px;border-radius:10px;font-size:12px;white-space:pre-wrap;word-break:break-all;margin:14px 0 8px"></pre>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="copySnippet()" id="m-copy">Copy snippet</button>
+      <p style="font-size:13px;color:var(--mut);margin-top:14px">We also emailed it to you, with a link to your lead inbox. <span id="m-upgrade-note"></span></p>
+      <button class="btn btn-ghost" style="margin-top:14px" onclick="closeModal()">Done</button>
     </div>
   </div>
 </div>
@@ -453,45 +486,58 @@
   function replay(){ widget.classList.add('js'); widget.classList.remove('play'); void widget.offsetWidth; widget.classList.add('play'); }
   window.addEventListener('load', ()=> setTimeout(startDemo, 400));
 
-  // --- modal ---
+  // --- modal / signup ---
   const overlay = document.getElementById('overlay');
-  function openModal(){
+  var chosenPlan = 'free';
+  function openModal(plan){
+    chosenPlan = plan || 'free';
     overlay.classList.add('open');
     document.getElementById('form-view').style.display='block';
     document.getElementById('thanks-view').style.display='none';
+    setTimeout(function(){ document.getElementById('m-biz').focus(); }, 50);
   }
   function closeModal(){ overlay.classList.remove('open'); }
+  function copySnippet(){
+    var t = document.getElementById('m-snippet').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){
+      document.getElementById('m-copy').textContent = 'Copied';
+    }).catch(function(){ window.prompt('Copy this line:', t); });
+  }
   function submitForm(){
-    // Post the lead to the /api/lead serverless function (which emails it via
-    // Resend), then show the thank-you. We don't block the thank-you on the
-    // network call — a failed send still logs and shouldn't trap the visitor.
+    var err = document.getElementById('m-err');
+    var btn = document.getElementById('m-submit');
     var payload = {
-      name:     document.getElementById('m-name').value,
-      email:    document.getElementById('m-email').value,
       business: document.getElementById('m-biz').value,
+      agentName: document.getElementById('m-name').value,
+      email:    document.getElementById('m-email').value,
       website:  document.getElementById('m-site').value,
       phone:    document.getElementById('m-phone').value,
-      smsConsent: document.getElementById('m-consent').checked
+      smsConsent: document.getElementById('m-consent').checked,
+      plan: chosenPlan
     };
-
-    // A number is what makes this reachable. Without one the signup lands in
-    // the inbox but never becomes a conversation anyone can answer.
     var digits = (payload.phone || '').replace(/\D/g, '');
-    var err = document.getElementById('m-err');
-    if (digits.length < 10) {
-      err.textContent = 'Add a mobile number we can text you on.';
-      err.style.display = 'block';
-      return;
-    }
+    if (!payload.business.trim()) { err.textContent = 'What is the business called?'; err.style.display='block'; return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payload.email)) { err.textContent = 'Enter a valid email.'; err.style.display='block'; return; }
+    if (digits.length < 10) { err.textContent = 'Add the mobile number that should get lead alerts.'; err.style.display='block'; return; }
     err.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Creating…';
     fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    }).catch(function(err){ console.error('lead post failed', err); });
-
-    document.getElementById('form-view').style.display='none';
-    document.getElementById('thanks-view').style.display='block';
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+    .then(function(x){
+      btn.disabled = false; btn.textContent = 'Create my account';
+      if (!x.ok || !x.j || !x.j.snippet) { err.textContent = (x.j && x.j.error) || 'Something went wrong. Try again.'; err.style.display='block'; return; }
+      document.getElementById('m-snippet').textContent = x.j.snippet;
+      document.getElementById('m-upgrade-note').textContent = chosenPlan !== 'free' ? 'Pick the ' + chosenPlan.charAt(0).toUpperCase() + chosenPlan.slice(1) + ' plan from the dashboard link in that email.' : '';
+      document.getElementById('form-view').style.display='none';
+      document.getElementById('thanks-view').style.display='block';
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = 'Create my account';
+      err.textContent = 'Network error. Try again.'; err.style.display='block';
+      console.error('signup failed', e);
+    });
   }
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 </script>

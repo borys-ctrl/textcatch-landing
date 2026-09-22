@@ -2,10 +2,24 @@
   "use strict";
 
   /* =================== CONFIG =================== */
-  const CONFIG = {
-    siteId: "textcatch",       // which customer this install belongs to (see api/sites.js)
-    webhookUrl: "/api/chat",     // Layer 2 backend (same-origin on textcatch.app)
-    agentName: "Borys",            // the friendly name the chat greets with
+  // Install: <script src="https://www.textcatch.app/textcatch-widget.js" data-site="YOUR_SITE_ID" async></script>
+  // The site id is read from the script tag; name, colours and branding come
+  // from /api/site?id=... so a customer never edits this file.
+  const SCRIPT = document.currentScript || (function () {
+    const all = document.getElementsByTagName("script");
+    for (let i = all.length - 1; i >= 0; i--) if (/textcatch-widget\.js/.test(all[i].src || "")) return all[i];
+    return null;
+  })();
+  const SITE_ID = (SCRIPT && SCRIPT.getAttribute("data-site")) || "textcatch";
+  const API_BASE = (function () {
+    try { const u = new URL(SCRIPT.src, location.href); return u.origin; } catch (e) { return "https://www.textcatch.app"; }
+  })();
+  const LEGACY_AVATAR = "https://cdn.shopify.com/s/files/1/0536/8771/3946/files/kai-avatar.jpg?v=1781164005";
+
+  const DEFAULTS = {
+    siteId: SITE_ID,
+    webhookUrl: API_BASE + "/api/chat",
+    agentName: "",               // filled from the server; falls back to businessName
     position: "right",           // "right" or "left"
     popupDelay: 3000,            // ms after page load before the bubble pops
     panelWidth: 320,             // chat panel width in px (try 300-360)
@@ -19,15 +33,28 @@
     panelBg2: "#262629",
     bubbleBot: "#2f2f33",        // bot message bubble color
     bubbleUser: "#16B57A",       // user message bubble color
-    logoUrl: "https://cdn.shopify.com/s/files/1/0536/8771/3946/files/kai-avatar.jpg?v=1781164005",                 // headshot shown in header + peek bubble
+    logoUrl: (SITE_ID === "textcatch" || SITE_ID === "bfh") ? LEGACY_AVATAR : "",
+    branding: true,              // "Powered by TextCatch" footer (free/starter plans)
 
-    // ---- Conversation copy (edit freely) ----
-    peekMessage: "Aloha! Borys here 🤙 Ask me anything — I’ll text you right back.",
+    // ---- Conversation copy ({agent} and {business} are filled in) ----
+    peekMessage: "Aloha! {agent} here 🤙 Ask me anything — I’ll text you right back.",
     askDetails: "Happy to help! Before I do — mind sharing your name, email & phone so I can text you back?",
     closing: "Thanks {name}! I'll get right back to you — keep an eye on your texts 📲",
     closingNoSms: "Thanks {name}! We received your inquiry and will be in touch."
   };
   /* ============================================== */
+
+  function darken(hex) {
+    const m = /^#([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return "#109A66";
+    const n = parseInt(m[1], 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const f = function (c) { return ("0" + Math.max(0, Math.round(c * 0.85)).toString(16)).slice(-2); };
+    return "#" + f(r) + f(g) + f(b);
+  }
+
+  function boot(CONFIG) {
+  if (!CONFIG.agentName) CONFIG.agentName = CONFIG.businessName;
+  CONFIG.bubbleUser = CONFIG.accent; CONFIG.accentDark = darken(CONFIG.accent);
+  CONFIG.peekMessage = CONFIG.peekMessage.replace("{agent}", CONFIG.agentName).replace("{business}", CONFIG.businessName);
 
   const side = CONFIG.position === "left" ? "left" : "right";
 
@@ -167,6 +194,8 @@
     }
     .bfh-consent-row.bfh-err-box { outline: 1px solid #e25555; outline-offset: 3px; border-radius: 4px; }
 
+    .bfh-brand { display: block; text-align: center; font-size: 11px; color: rgba(255,255,255,.45); text-decoration: none; padding: 4px 0 2px; }
+    .bfh-brand:hover { color: rgba(255,255,255,.8); }
     @media (max-width: 480px) {
       #bfh-root { bottom: 16px; ${side}: 16px; }
       #bfh-panel { width: calc(100vw - 32px); height: 70vh; }
@@ -190,6 +219,7 @@
       '</div>' +
       '<div class="bfh-msgs" id="bfh-msgs"></div>' +
       '<div class="bfh-foot">' +
+        (CONFIG.branding ? '<a class="bfh-brand" href="https://www.textcatch.app/?ref=widget&site=' + encodeURIComponent(CONFIG.siteId) + '" target="_blank" rel="noopener">Powered by TextCatch</a>' : '') +
         '<div class="bfh-compose" id="bfh-compose">' +
           '<input id="bfh-input" type="text" placeholder="Type your message..." autocomplete="off">' +
           '<button class="bfh-send" id="bfh-send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg></button>' +
@@ -434,4 +464,23 @@
       console.error("TextCatch chat submit error:", err);
     }
   });
+  } // boot
+
+  // Fetch this site's config, then build. If the server is unreachable the
+  // widget still appears with defaults - a broken config must not hide leads.
+  const cfg = Object.assign({}, DEFAULTS);
+  fetch(API_BASE + "/api/site?id=" + encodeURIComponent(SITE_ID), { mode: "cors" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (j && j.siteId) {
+        cfg.businessName = j.businessName || cfg.businessName;
+        cfg.agentName = j.agentName || cfg.agentName;
+        if (j.accent) cfg.accent = j.accent;
+        cfg.branding = j.branding !== false;
+      }
+    })
+    .catch(function () {})
+    .then(function () {
+      if (document.body) boot(cfg); else document.addEventListener("DOMContentLoaded", function () { boot(cfg); });
+    });
 })();

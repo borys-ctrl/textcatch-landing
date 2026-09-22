@@ -1,5 +1,7 @@
-const { requireSession } = require("./auth");
+const { requireSiteAccess } = require("../../lib/auth");
 const { saveMessage, touchConversation } = require("../../lib/store");
+const { getSite, textsUsedThisMonth } = require("../../lib/sites");
+const twilio = require("../../lib/twilio");
 
 // POST /api/portal/reply  { conversationId, body }
 //
@@ -22,30 +24,13 @@ async function supabase(path) {
   return r.json();
 }
 
-async function sendSms(to, body) {
-  var sid = process.env.TWILIO_ACCOUNT_SID;
-  var token = process.env.TWILIO_AUTH_TOKEN;
-  var from = process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token || !from) throw new Error("SMS not configured");
-
-  var r = await fetch("https://api.twilio.com/2010-04-01/Accounts/" + sid + "/Messages.json", {
-    method: "POST",
-    headers: {
-      Authorization: "Basic " + Buffer.from(sid + ":" + token).toString("base64"),
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ To: to, From: from, Body: body }),
-  });
-  if (!r.ok) throw new Error("Twilio " + r.status + ": " + (await r.text()).slice(0, 300));
-  return r.json();
-}
-
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
-  if (!requireSession(req, res)) return;
+  var access = await requireSiteAccess(req, res, null);
+  if (!access) return;
 
   var body = req.body;
   if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
@@ -69,13 +54,24 @@ module.exports = async (req, res) => {
     // Look the number up server-side rather than trusting one from the client:
     // otherwise the portal becomes a way to text any number in the world.
     var rows = await supabase(
-      "conversations?id=eq." + conversationId + "&select=id,lead_phone&limit=1"
+      "conversations?id=eq." + conversationId + "&select=id,lead_phone,site_id&limit=1"
     );
     if (!rows || !rows.length) return res.status(404).json({ error: "No such conversation" });
     var phone = rows[0].lead_phone;
     if (!phone) return res.status(409).json({ error: "That conversation has no phone number" });
 
-    var sent = await sendSms(phone, text);
+    // Owners may only reply on their own sites' threads.
+    var site = await getSite(rows[0].site_id);
+    if (!site) return res.status(404).json({ error: "No such site" });
+    if (!access.all && !(access.sites || []).some(function (s) { return s.id === site.id; })) {
+      return res.status(403).json({ error: "Not your conversation" });
+    }
+    var used = await textsUsedThisMonth(site.id);
+    if (used >= site.plan.texts) {
+      return res.status(402).json({ error: "This site has used its " + site.plan.texts + " texts for the month. Upgrade to keep texting." });
+    }
+
+    var sent = await twilio.sendSms({ from: site.fromNumber, to: phone, body: text });
 
     // Sent is what matters; a logging failure must not tell the user it failed
     // and tempt them into sending it twice.
@@ -84,7 +80,7 @@ module.exports = async (req, res) => {
         conversation_id: conversationId,
         direction: "outbound",
         body: text,
-        from_number: process.env.TWILIO_PHONE_NUMBER || null,
+        from_number: site.fromNumber || null,
         to_number: phone,
         twilio_sid: (sent && sent.sid) || null,
       });

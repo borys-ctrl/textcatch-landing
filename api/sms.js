@@ -1,7 +1,7 @@
 const crypto = require("crypto");
-const { getSite } = require("./sites");
+const { getSite, getSiteByNumber, getSiteForSharedInbound } = require("../lib/sites");
 const { findOrCreateConversation, saveMessage } = require("../lib/store");
-const { sendInboundSmsEmail } = require("./notify");
+const { sendInboundSmsEmail } = require("../lib/notify");
 const { notifyDevices } = require("../lib/webpush");
 
 // Vercel serverless function: Twilio's "A message comes in" webhook for the
@@ -100,9 +100,13 @@ module.exports = async (req, res) => {
     return emptyTwiml(res);
   }
 
-  // Which customer's number was texted. Single number today, so the default
-  // site is correct; when customers get their own numbers this maps To -> site.
-  const site = getSite(process.env.INBOUND_SITE_ID) || getSite(null);
+  // Which customer this text belongs to.
+  //   1. a dedicated number: the site that owns `To`
+  //   2. the shared number: whichever site this phone was last talking to
+  //   3. fallback: the default site, so nothing is ever dropped
+  let site = await getSiteByNumber(to);
+  if (!site) site = await getSiteForSharedInbound(from);
+  if (!site) site = await getSite(process.env.INBOUND_SITE_ID) || await getSite(null);
   const siteId = site ? site.id : "textcatch";
 
   // Never let a storage or email problem cause a non-200: Twilio would retry,
@@ -134,6 +138,8 @@ module.exports = async (req, res) => {
 
   try {
     await sendInboundSmsEmail({
+      to: site && site.ownerEmail ? [site.ownerEmail] : undefined,
+      businessName: site && site.businessName,
       conversationId: convo && convo.id,
       from: from,
       name: convo && convo.lead_name,
@@ -147,7 +153,7 @@ module.exports = async (req, res) => {
   // can sit unread for an hour, and a lead who texted is waiting right now.
   // The push carries no content; the app fetches the message itself.
   try {
-    const pushed = await notifyDevices();
+    const pushed = await notifyDevices(site && site.ownerEmail);
     if (pushed && pushed.error) {
       console.error("Inbound SMS push:", pushed.error, { sid: sid });
     } else {

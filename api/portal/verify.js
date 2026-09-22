@@ -1,4 +1,4 @@
-const { verify, makeSessionToken, sessionCookie } = require("./auth");
+const { verify, makeSessionToken, sessionCookie } = require("../../lib/auth");
 
 // GET /api/portal/verify?token=...
 //
@@ -22,12 +22,12 @@ module.exports = async (req, res) => {
   }
 
   var data = verify(token, secret, "login");
-  if (!data || data.e !== allowed) {
+  if (!data || !data.e) {
     // Covers expired, tampered, wrong-kind and wrong-address in one message:
     // distinguishing them would tell an attacker which part they got right.
     return res.redirect(302, "/app?error=expired");
   }
 
-  res.setHeader("Set-Cookie", sessionCookie(makeSessionToken(allowed, secret)));
+  res.setHeader("Set-Cookie", sessionCookie(makeSessionToken(data.e, secret)));
   return res.redirect(302, "/app");
 };
