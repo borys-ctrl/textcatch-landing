@@ -74,6 +74,12 @@
     font-size: 15px; font-family: inherit;
   }
   input[type=email]:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  #code {
+    width: 100%; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px;
+    font-family: inherit; font-size: 24px; letter-spacing: 8px; text-align: center;
+  }
+  #code:focus { outline: none; border-color: var(--accent); }
   button {
     background: var(--accent); color: #fff; border: 0; border-radius: 10px;
     padding: 11px 16px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -173,9 +179,17 @@
   <div class="card">
     <p class="brand">Text<span>Catch</span></p>
     <p class="sub">Sign in to read and answer your texts.</p>
-    <label for="email">Email</label>
-    <input id="email" type="email" autocomplete="email" placeholder="you@yourbusiness.com">
-    <button id="send" class="full">Email me a sign-in link</button>
+    <div id="stepEmail">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@yourbusiness.com">
+      <button id="send" class="full">Email me a code</button>
+    </div>
+    <div id="stepCode" style="display:none">
+      <label for="code">Enter the 6-digit code we emailed you</label>
+      <input id="code" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="7" placeholder="123456">
+      <button id="verify" class="full">Sign in</button>
+      <button id="restart" class="linkbtn" type="button" style="margin-top:10px">Different email, or send a new code</button>
+    </div>
     <p id="note" class="note"></p>
   </div>
 </section>
@@ -421,6 +435,16 @@
   $("setupClose").addEventListener("click", function () { $("setup").classList.remove("on"); });
 
   // ---- sign in ----
+  // A code typed into the app, not a link. On an iPhone a link opens Safari,
+  // which signs Safari in and leaves the installed app asking forever - the
+  // two keep separate cookies. The code is checked from inside the app, so
+  // the session lands where it is needed.
+  function codeStep(on) {
+    $("stepEmail").style.display = on ? "none" : "block";
+    $("stepCode").style.display = on ? "block" : "none";
+    if (on) { $("code").value = ""; $("code").focus(); }
+  }
+
   $("send").addEventListener("click", async function () {
     var email = $("email").value.trim();
     var note = $("note");
@@ -434,12 +458,61 @@
       });
       var j = await r.json();
       note.className = "note ok";
-      note.textContent = j.message || "Check your inbox.";
+      note.textContent = j.message || "Check your email for a code.";
+      codeStep(true);
     } catch (e) {
       note.className = "note err";
       note.textContent = "Something went wrong. Try again.";
     }
     $("send").disabled = false;
+  });
+
+  async function verifyCode() {
+    var note = $("note");
+    var email = $("email").value.trim();
+    var code = $("code").value.replace(/\D/g, "");
+    if (code.length !== 6) { note.className = "note err"; note.textContent = "The code is 6 digits."; return; }
+    $("verify").disabled = true;
+    note.className = "note";
+    note.textContent = "Checking…";
+    try {
+      var r = await fetch("/api/portal/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email: email, code: code }),
+      });
+      var j = await r.json().catch(function () { return {}; });
+      if (r.ok && j.ok) {
+        note.className = "note ok";
+        note.textContent = "Signed in.";
+        // Reload so the app boots exactly as it would for a returning user:
+        // inbox, notifications, setup panel.
+        location.replace("/app");
+        return;
+      }
+      note.className = "note err";
+      note.textContent = j.error || "That code didn't work. Try again.";
+    } catch (e) {
+      note.className = "note err";
+      note.textContent = "Something went wrong. Try again.";
+    }
+    $("verify").disabled = false;
+  }
+
+  $("verify").addEventListener("click", verifyCode);
+  $("code").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") verifyCode();
+  });
+  // The iPhone keyboard offers the code from Mail; tapping it should be all
+  // it takes.
+  $("code").addEventListener("input", function () {
+    if ($("code").value.replace(/\D/g, "").length === 6 && !$("verify").disabled) verifyCode();
+  });
+  $("restart").addEventListener("click", function () {
+    $("note").textContent = "";
+    codeStep(false);
+    $("email").focus();
   });
 
   $("email").addEventListener("keydown", function (e) {
