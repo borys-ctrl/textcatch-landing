@@ -1,6 +1,7 @@
 const { requireSiteAccess } = require("../../lib/auth");
 const { saveMessage, touchConversation } = require("../../lib/store");
 const { getSite, textsUsedThisMonth } = require("../../lib/sites");
+const { replyPermission } = require("../../lib/consent");
 const twilio = require("../../lib/twilio");
 
 // POST /api/portal/reply  { conversationId, body }
@@ -66,6 +67,25 @@ module.exports = async (req, res) => {
     if (!access.all && !(access.sites || []).some(function (s) { return s.id === site.id; })) {
       return res.status(403).json({ error: "Not your conversation" });
     }
+
+    // Consent, enforced here and not only in the app: nobody gets a text who
+    // declined on the chat form or texted STOP, whatever client is asking.
+    // If either lookup fails this throws and the send is refused - when in
+    // doubt, don't text.
+    var inbound = await supabase(
+      "messages?conversation_id=eq." + conversationId +
+      "&direction=eq.inbound&select=direction,body,twilio_sid,created_at"
+    );
+    var leads = await supabase(
+      "leads?select=*&site_id=eq." + encodeURIComponent(site.id) +
+      "&phone=eq." + encodeURIComponent(phone)
+    );
+    var perm = replyPermission(inbound, leads);
+    if (!perm.canReply) {
+      console.log("Reply refused, no consent", { conversationId: conversationId, site: site.id });
+      return res.status(403).json({ error: perm.reason });
+    }
+
     var used = await textsUsedThisMonth(site.id);
     if (used >= site.plan.texts) {
       return res.status(402).json({ error: "This site has used its " + site.plan.texts + " texts for the month. Upgrade to keep texting." });
