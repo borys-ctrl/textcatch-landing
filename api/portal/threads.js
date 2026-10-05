@@ -1,10 +1,15 @@
 const { requireSiteAccess } = require("../../lib/auth");
+const { replyPermission, inList } = require("../../lib/consent");
 
 // GET /api/portal/threads
 //
 // Every conversation, newest activity first, each with its messages.
 // Session-gated: these are customer phone numbers and message bodies, and the
 // service key never leaves the server.
+//
+// Each thread also says whether it may be texted (canReply) and, if not, why
+// (replyBlocked), so the app can hide the Send box instead of offering one
+// that can only fail. The reply endpoint enforces the same rule.
 
 async function supabase(path) {
   var base = process.env.SUPABASE_URL;
@@ -41,11 +46,32 @@ module.exports = async (req, res) => {
       "&order=last_message_at.desc&limit=200" + filter
     );
 
+    // The consent box lives on the widget submission, in `leads`. One query
+    // for every phone on screen. If it fails the inbox still loads, but
+    // threads that depend on it show as not textable: when in doubt, don't.
+    var leadsByKey = {};
+    var phones = [];
+    (rows || []).forEach(function (c) {
+      if (c.lead_phone && phones.indexOf(c.lead_phone) === -1) phones.push(c.lead_phone);
+    });
+    if (phones.length) {
+      try {
+        var leads = await supabase("leads?select=*&phone=in." + inList(phones) + "&limit=1000");
+        (leads || []).forEach(function (l) {
+          var k = l.site_id + "|" + l.phone;
+          (leadsByKey[k] = leadsByKey[k] || []).push(l);
+        });
+      } catch (err) {
+        console.error("Consent lookup failed:", err && err.message);
+      }
+    }
+
     var threads = (rows || []).map(function (c) {
       var msgs = (c.messages || []).slice().sort(function (a, b) {
         return new Date(a.created_at) - new Date(b.created_at);
       });
       var last = msgs.length ? msgs[msgs.length - 1] : null;
+      var perm = replyPermission(msgs, leadsByKey[c.site_id + "|" + c.lead_phone] || []);
       return {
         id: c.id,
         siteId: c.site_id,
@@ -54,6 +80,8 @@ module.exports = async (req, res) => {
         lastMessageAt: c.last_message_at,
         preview: last ? (last.body || "").slice(0, 120) : "",
         lastDirection: last ? last.direction : null,
+        canReply: perm.canReply,
+        replyBlocked: perm.reason,
         messages: msgs.map(function (m) {
           return { id: m.id, direction: m.direction, body: m.body, at: m.created_at };
         }),
