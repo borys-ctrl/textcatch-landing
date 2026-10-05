@@ -1,13 +1,17 @@
 const { makeLoginToken, isAdmin } = require("../../lib/auth");
 const { sendEmail } = require("../../lib/notify");
 const { getSitesByOwner } = require("../../lib/sites");
+const { issueCode } = require("../../lib/logincode");
 
 // POST /api/portal/login  { email }
 //
-// Emails a one-time sign-in link to the admin or to any address that owns a
-// site. Always answers "check your inbox", whatever address was submitted:
-// replying differently for a valid address would turn this into an oracle
-// telling a stranger who has access.
+// Emails a 6-digit sign-in code, plus a one-time link, to the admin or to any
+// address that owns a site. Always answers the same way, whatever address was
+// submitted: replying differently for a valid address would turn this into an
+// oracle telling a stranger who has access.
+//
+// The code is for the installed phone app, which cannot use the link (see
+// lib/logincode.js). The link stays for computers, where it is one click.
 
 function baseUrl(req) {
   var host = req.headers["x-forwarded-host"] || req.headers.host || "textcatch.app";
@@ -34,7 +38,7 @@ module.exports = async (req, res) => {
   var email = (body.email || "").toString().trim().toLowerCase();
 
   // The generic reply, sent no matter what happens below.
-  var ok = { ok: true, message: "If that address has access, a sign-in link is on its way." };
+  var ok = { ok: true, message: "If that address has access, a code is on its way. Check your email." };
 
   var known = isAdmin(email);
   if (!known) {
@@ -46,19 +50,45 @@ module.exports = async (req, res) => {
     return res.status(200).json(ok);
   }
 
+  // A code if we can make one. If storage is down the link still works, so
+  // sign-in degrades to the old behaviour rather than breaking.
+  var code = null;
+  try {
+    var issued = await issueCode(email, secret);
+    if (issued.limited) {
+      // Five codes in an hour. Send nothing: more emails would only help
+      // someone guessing, and would flood the owner's inbox.
+      console.log("Portal login code rate-limited");
+      return res.status(200).json(ok);
+    }
+    code = issued.code;
+  } catch (err) {
+    console.error("Login code unavailable, sending link only:", err && err.message);
+  }
+
   var link = baseUrl(req) + "/api/portal/verify?token=" +
     encodeURIComponent(makeLoginToken(email, secret));
+  var NL = String.fromCharCode(10);
 
   try {
     await sendEmail({
       to: [email],
-      subject: "Sign in to TextCatch",
-      text: "Tap to sign in. The link works once and expires in 15 minutes." +
-        String.fromCharCode(10) + String.fromCharCode(10) + link,
-      html: '<p>Tap to sign in to the TextCatch portal.</p>' +
-        '<p><a href="' + link + '">Sign in</a></p>' +
-        '<p style="color:#666;font-size:13px">This link expires in 15 minutes. ' +
-        'If you did not request it, ignore this email - nothing happens until it is opened.</p>',
+      subject: code ? "Your TextCatch code: " + code : "Sign in to TextCatch",
+      text: (code
+          ? "Your sign-in code is " + code + NL + NL +
+            "Type it into the TextCatch app. It expires in 10 minutes." + NL + NL +
+            "On a computer? You can use this link instead:" + NL
+          : "Tap to sign in. The link works once and expires in 15 minutes." + NL + NL) +
+        link,
+      html: (code
+          ? '<p>Your TextCatch sign-in code is</p>' +
+            '<p style="font-size:30px;font-weight:700;letter-spacing:6px;margin:8px 0 16px">' + code + '</p>' +
+            '<p>Type it into the TextCatch app. It expires in 10 minutes.</p>' +
+            '<p style="color:#666;font-size:13px">On a computer? <a href="' + link + '">Sign in with this link</a> instead.</p>'
+          : '<p>Tap to sign in to the TextCatch portal.</p>' +
+            '<p><a href="' + link + '">Sign in</a></p>' +
+            '<p style="color:#666;font-size:13px">This link expires in 15 minutes.</p>') +
+        '<p style="color:#666;font-size:13px">If you did not request this, ignore this email - nothing happens unless the code or link is used.</p>',
     });
   } catch (err) {
     // Logged, but the response stays identical so failures leak nothing either.
